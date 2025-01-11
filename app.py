@@ -1,4 +1,9 @@
 # app.py
+#
+# Uppdaterad huvudfil. Nu har vi tre flikar:
+#  1) Statistik & Översikt
+#  2) Beställningar
+#  3) Mottag Leverans (NY) - för att stämma av leveranser och uppdatera snittkostnad
 
 import os
 import pathlib
@@ -8,8 +13,24 @@ import numpy as np
 from datetime import datetime, timedelta
 import logging
 
-from data import fetch_all_products_with_sales
+from data import (
+    fetch_all_products_with_sales,
+    load_product_costs,
+    save_product_costs,
+    get_current_avg_cost,
+    update_avg_cost,
+    add_incoming_stock_columns,  # nu kommer den från data.py
+    PRODUCT_COSTS_FILE
+)
 from sheets import push_to_google_sheets
+
+from data import (
+    fetch_all_product_costs,
+    fetch_sales_data,
+    process_sales_data,
+    merge_product_and_sales_data,
+    calculate_reorder_metrics
+)
 
 # Filnamn för lagring av ordrar
 ACTIVE_ORDERS_FILE = "active_orders.csv"
@@ -38,18 +59,27 @@ def main():
         st.error("API-endpoint och/eller token saknas. Ställ in miljövariabler och starta om.")
         return
 
-    # Ladda ordrar från fil (in i session_state) innan vi bygger våra tabs
+    # Initiera ordrar samt product_costs i session_state
     load_orders_from_file()
+    if "product_costs" not in st.session_state:
+        st.session_state["product_costs"] = load_product_costs()
 
     st.title("Inköpssystem för småföretag")
 
-    tab_stats, tab_orders = st.tabs(["📊 Statistik & Översikt", "📦 Beställningar"])
+    tab_stats, tab_orders, tab_delivery = st.tabs([
+        "📊 Statistik & Översikt", 
+        "📦 Beställningar",
+        "🛬 Mottag Leverans"
+    ])
 
     with tab_stats:
         render_statistics_tab(api_endpoint, api_token)
 
     with tab_orders:
-        render_orders_tab(api_endpoint, api_token)
+        render_orders_tab()
+
+    with tab_delivery:
+        render_delivery_tab()
 
 
 def render_statistics_tab(api_endpoint, api_token):
@@ -138,7 +168,7 @@ def render_statistics_tab(api_endpoint, api_token):
             cols_we_have = [c for c in desired_order if c in df.columns]
             df = df[cols_we_have]
 
-            # Töm värden i "Quantity to Order" kolumnen
+            # Nollställ "Quantity to Order" kolumnen (används bl.a. vid import)
             if 'Quantity to Order' in df.columns:
                 df['Quantity to Order'] = ''
 
@@ -164,12 +194,11 @@ def render_statistics_tab(api_endpoint, api_token):
                     st.error("Något gick fel vid push till Google Sheets.")
 
 
-def render_orders_tab(api_endpoint, api_token):
+def render_orders_tab():
     """
     Visar två sub-tabs:
       1) Aktiva ordrar
       2) Inaktiva ordrar
-    Samma DataFrame (st.session_state.all_orders), men filtrerad på IsActive.
     """
 
     sub_tab_active, sub_tab_inactive = st.tabs(["Aktiva ordrar", "Inaktiva ordrar"])
@@ -209,10 +238,15 @@ def render_orders_tab(api_endpoint, api_token):
                                     (merged_df['Size'].astype(str) == row['Size'])
                                 )
                                 if any(mask):
-                                    merged_df.loc[mask, 'Stock Balance'] += row['Quantity ordered']
+                                    # Här kan man välja att inte direkt öka Stock Balance
+                                    # utan bara låta "Incoming Qty" vara
+                                    # MEN om du vill att Import = direkt påfyllning, kan du göra:
+                                    # merged_df.loc[mask, 'Stock Balance'] += row['Quantity ordered']
+                                    pass
+
                             merged_df = add_incoming_stock_columns(merged_df)
                             st.session_state['merged_df'] = merged_df
-                            st.info("Lagersaldo uppdaterat i Statistik & Översikt.")
+                            st.info("Lagersaldo uppdaterat (Incoming Qty) i Statistik & Översikt.")
 
                     else:
                         st.warning("Inga giltiga rader i CSV-filen (måste ha Quantity ordered > 0).")
@@ -243,12 +277,8 @@ def render_orders_tab(api_endpoint, api_token):
 
                 if 'merged_df' in st.session_state:
                     merged_df = st.session_state['merged_df'].copy()
-                    mask = (
-                        (merged_df['ProductID'].astype(str) == product_id) &
-                        (merged_df['Size'].astype(str) == size)
-                    )
-                    if any(mask):
-                        merged_df.loc[mask, 'Stock Balance'] += qty
+                    # Samma notering här som ovan, vill du öka lagret direkt eller bara ha det i “Incoming”?
+                    # merged_df.loc[mask, 'Stock Balance'] += qty
                     merged_df = add_incoming_stock_columns(merged_df)
                     st.session_state['merged_df'] = merged_df
 
@@ -332,39 +362,113 @@ def render_inactive_orders_ui():
             st.info("Statistik & översikt uppdaterad.")
 
 
-def add_incoming_stock_columns(df):
+# ----------------------------------------------------------------
+#  Ny tab: Mottag Leverans
+# ----------------------------------------------------------------
+def render_delivery_tab():
     """
-    Skapar kolumner:
-      - 'Incoming Qty' = summan av Quantity ordered för IsActive == True
-      - 'Stock + Incoming' = Stock Balance + Incoming Qty
-    Endast ordrar med 'IsActive=True' räknas.
+    Här kan vi stämma av leveranser (dvs när varor faktiskt anlänt).
+    Vi gör en enkel version:
+      1. Ange ProductID och storlek
+      2. Ange hur mycket som levererats (QTY delivered)
+      3. Ange “Baspris” (eller låt systemet hämta “Inköpspris”)
+      4. Ange frakt, ev. valutakurs
+      5. Beräkna ny “snittkostnad”
+      6. Uppdatera lagersaldo i merged_df
+      7. Sätt order (IsActive=False) om du vill
     """
-    if 'all_orders' not in st.session_state:
-        # Inga ordrar alls
-        df['Incoming Qty'] = 0
-        df['Stock + Incoming'] = df['Stock Balance']
-        return df
+    st.header("Mottag Leverans")
 
-    active_orders = st.session_state.all_orders[st.session_state.all_orders['IsActive'] == True].copy()
-    if active_orders.empty:
-        # Inga aktiva
-        df['Incoming Qty'] = 0
-        df['Stock + Incoming'] = df['Stock Balance']
-        return df
+    if "merged_df" not in st.session_state:
+        st.info("Ingen produktdata i systemet ännu. Hämta i Statistik & Översikt först.")
+        return
 
-    # Summera
-    incoming_df = (
-        active_orders
-        .groupby(['ProductID', 'Size'], as_index=False)['Quantity ordered']
-        .sum()
-        .rename(columns={'Quantity ordered': 'Incoming Qty'})
-    )
+    merged_df = st.session_state["merged_df"].copy()
 
-    out = pd.merge(df, incoming_df, on=['ProductID', 'Size'], how='left')
-    out['Incoming Qty'] = out['Incoming Qty'].fillna(0).astype(int)
-    out['Stock + Incoming'] = out['Stock Balance'] + out['Incoming Qty']
+    # Välj Produkt
+    product_ids = merged_df["ProductID"].unique().tolist()
+    product_id = st.selectbox("Välj ProduktID", options=["-"] + product_ids)
+    if product_id == "-":
+        st.stop()
 
-    return out
+    # Filtrera storlekar
+    product_data = merged_df[merged_df["ProductID"] == product_id].copy()
+    sizes = product_data["Size"].unique().tolist()
+    size = st.selectbox("Välj Storlek", options=["-"] + sizes)
+    if size == "-":
+        st.stop()
+
+    mask = (merged_df["ProductID"] == product_id) & (merged_df["Size"] == size)
+    current_stock = merged_df.loc[mask, "Stock Balance"].values[0]
+    current_cost_in_df = merged_df.loc[mask, "Inköpspris"].values[0]
+
+    st.write(f"Aktuellt lager: **{current_stock}** st")
+    st.write(f"Nuvarande inköpspris i merged_df: **{current_cost_in_df}** (separat från snittkostnadstabellen)")
+
+    # Hämta eventuell tidigare snittkostnad
+    existing_avg_cost = get_current_avg_cost(product_id)
+    st.write(f"Registrerat snittpris i product_costs.csv: **{existing_avg_cost}**")
+
+    colA, colB, colC = st.columns(3)
+    with colA:
+        qty_delivered = st.number_input("QTY levererad", min_value=1, value=10)
+    with colB:
+        fraktkostnad = st.number_input("Fraktkostnad (total)", min_value=0.0, value=0.0)
+    with colC:
+        valutafaktor = st.number_input("Valutafaktor", min_value=0.0, value=1.0, help="Multiplicera grundpris med denna faktor")
+
+    # Exempel: Ny kostnad/produkt = (grundpris * valutafaktor) + (frakt / qty_delivered)
+    # Du kan byta logik självklart
+    st.markdown("##### Beräkning av nytt leveranspris per enhet")
+    base_price = current_cost_in_df * valutafaktor
+    if qty_delivered > 0:
+        frakt_per_enhet = fraktkostnad / float(qty_delivered)
+    else:
+        frakt_per_enhet = 0.0
+
+    new_landed_cost_per_unit = round(base_price + frakt_per_enhet, 2)
+    st.write(f"**Ny “landed cost” per enhet**: {new_landed_cost_per_unit}")
+
+    # Weighted Average Cost
+    # (oldStock * existing_avg_cost + newQty * new_landed_cost) / (oldStock + newQty)
+    st.markdown("##### Uppdaterad snittkostnad (viktad)")
+    old_stock = float(current_stock)
+    old_cost = float(existing_avg_cost)
+    new_qty = float(qty_delivered)
+    new_cost = float(new_landed_cost_per_unit)
+
+    if (old_stock + new_qty) > 0:
+        updated_avg_cost = round(((old_stock * old_cost) + (new_qty * new_cost)) / (old_stock + new_qty), 2)
+    else:
+        updated_avg_cost = new_cost
+
+    st.write(f"**Viktad snittkostnad**: {updated_avg_cost}")
+
+    if st.button("Mottag leverans"):
+        # Uppdatera lager i merged_df
+        merged_df.loc[mask, "Stock Balance"] = merged_df.loc[mask, "Stock Balance"] + qty_delivered
+        # Sätt Inköpspris i merged_df till new_landed_cost_per_unit, om du vill
+        # eller sätt det till updated_avg_cost. Valfritt. 
+        merged_df.loc[mask, "Inköpspris"] = updated_avg_cost
+
+        # Uppdatera “product_costs.csv” med updated_avg_cost
+        update_avg_cost(product_id, updated_avg_cost)
+
+        # Eventuellt markera relevant order som levererad => IsActive=False
+        # Här gör vi ett enkelt svep: Sätt IsActive=False för en rad om den har "Quantity ordered" == qty_delivered
+        # Du kan göra mer avancerad logik förstås.
+        for idxo, rowo in st.session_state.all_orders.iterrows():
+            if rowo["ProductID"] == product_id and rowo["Size"] == size and rowo["IsActive"] == True:
+                # Du kan kolla om qty_delivered >= rowo["Quantity ordered"] etc.
+                st.session_state.all_orders.at[idxo, "IsActive"] = False
+
+        save_orders_to_file()
+
+        # Spara nya merged_df
+        merged_df = add_incoming_stock_columns(merged_df)
+        st.session_state["merged_df"] = merged_df
+
+        st.success("Leverans mottagen! Lager & snittkostnad uppdaterad.")
 
 
 def load_orders_from_file():

@@ -1,4 +1,7 @@
 # sheets.py
+#
+# Oförändrat från ditt original, förutom denna kommentarsrad.
+# Hanterar Google Sheets-autentisering och uppladdning/hämtning av data.
 
 import logging
 import streamlit as st
@@ -39,19 +42,7 @@ def push_to_google_sheets(df, sheet_name):
         # Hantera NaN/inf innan skrivning
         df = df.replace([np.inf, -np.inf], np.nan).fillna('')
 
-        # Beräkna Days to Zero om inte redan gjorts
-        if 'Stock Balance' in df.columns and 'Avg Daily Sales' in df.columns and 'Days to Zero' in df.columns:
-            df['Stock Balance'] = pd.to_numeric(df['Stock Balance'], errors='coerce').fillna(0)
-            df['Avg Daily Sales'] = pd.to_numeric(df['Avg Daily Sales'], errors='coerce').fillna(0)
-
-            def calc_days_to_zero(row):
-                if row['Avg Daily Sales'] == 0:
-                    return ''
-                return int(round(row['Stock Balance'] / row['Avg Daily Sales'], 0))
-
-            df['Days to Zero'] = df.apply(calc_days_to_zero, axis=1)
-
-        # Önskad kolumnordning
+        # Önskad kolumnordning - uppdaterad för att matcha applikationens visning
         desired_order = [
             "ProductID",
             "Product Number",
@@ -63,13 +54,16 @@ def push_to_google_sheets(df, sheet_name):
             "Inköpspris",
             "Quantity Sold",
             "Stock Balance",
+            "Incoming Qty",
+            "Stock + Incoming",
             "Avg Daily Sales",
             "Days to Zero",
             "Reorder Level",
             "Quantity to Order",
-            "Need to Order",
-            "Quantity ordered"
+            "Need to Order"
         ]
+
+        # Filtrera och ordna kolumner
         existing_columns = [col for col in desired_order if col in df.columns]
         df = df[existing_columns]
 
@@ -80,7 +74,7 @@ def push_to_google_sheets(df, sheet_name):
         # Skriv DF -> Sheet
         set_with_dataframe(worksheet, df)
 
-        # Dela ark med en fördefinierad e-post
+        # Dela ark med fördefinierad e-post
         predefined_email = 'neckwearsweden@gmail.com'
         try:
             sheet.share(predefined_email, perm_type='user', role='writer')

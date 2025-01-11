@@ -1,4 +1,7 @@
 # data.py
+#
+# Utökad med enkel hantering av "product_costs.csv" (snittkostnader).
+# Resten av filen är i princip oförändrad från din originalkod.
 
 import os
 import requests
@@ -17,7 +20,71 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Hämtar leverantörer
+PRODUCT_COSTS_FILE = "product_costs.csv"
+
+# ----------------------------------------------------------------
+# Nya hjälpfunktioner för att hantera product_costs.csv
+# ----------------------------------------------------------------
+
+def load_product_costs():
+    """Laddar filen product_costs.csv som lagrar snittkostnad per produkt."""
+    if not os.path.isfile(PRODUCT_COSTS_FILE):
+        # Skapa en tom DataFrame om fil ej finns
+        return pd.DataFrame(columns=["ProductID", "AvgCost", "LastUpdated"])
+
+    try:
+        df = pd.read_csv(PRODUCT_COSTS_FILE, dtype={"ProductID": str})
+        if "AvgCost" not in df.columns:
+            df["AvgCost"] = 0.0
+        if "LastUpdated" not in df.columns:
+            df["LastUpdated"] = ""
+        return df
+    except Exception as e:
+        logger.error(f"Fel vid laddning av {PRODUCT_COSTS_FILE}: {str(e)}")
+        return pd.DataFrame(columns=["ProductID", "AvgCost", "LastUpdated"])
+
+def save_product_costs(df):
+    """Sparar DataFrame med snittkostnad per produkt till product_costs.csv."""
+    try:
+        df.to_csv(PRODUCT_COSTS_FILE, index=False)
+    except Exception as e:
+        logger.error(f"Fel vid sparning av {PRODUCT_COSTS_FILE}: {str(e)}")
+
+def get_current_avg_cost(product_id):
+    """Returnerar nuvarande snittkostnad för en viss produktID, annars 0.0."""
+    cost_df = st.session_state.get("product_costs", pd.DataFrame(columns=["ProductID", "AvgCost"]))
+    row = cost_df[cost_df["ProductID"] == product_id]
+    if row.empty:
+        return 0.0
+    return float(row["AvgCost"].iloc[0])
+
+def update_avg_cost(product_id, new_cost):
+    """
+    Uppdaterar snittkostnad i st.session_state.product_costs 
+    och sparar till fil.
+    """
+    cost_df = st.session_state.get("product_costs", pd.DataFrame(columns=["ProductID", "AvgCost", "LastUpdated"]))
+    idx = cost_df[cost_df["ProductID"] == product_id].index
+    now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    if len(idx) == 0:
+        # Skapa ny rad
+        new_row = pd.DataFrame([{
+            "ProductID": product_id,
+            "AvgCost": new_cost,
+            "LastUpdated": now_str
+        }])
+        cost_df = pd.concat([cost_df, new_row], ignore_index=True)
+    else:
+        cost_df.loc[idx, "AvgCost"] = new_cost
+        cost_df.loc[idx, "LastUpdated"] = now_str
+
+    st.session_state["product_costs"] = cost_df
+    save_product_costs(cost_df)
+
+# ----------------------------------------------------------------
+# Existerande funktioner (oförändrade)
+# ----------------------------------------------------------------
+
 @st.cache_data(show_spinner=False)
 def fetch_all_suppliers(api_endpoint, headers):
     suppliers = []
@@ -54,7 +121,6 @@ def fetch_all_suppliers(api_endpoint, headers):
 
     return suppliers
 
-# Hämtar alla varianter för en leverantör (paginering)
 @st.cache_data(show_spinner=False)
 def fetch_supplied_product_variants(api_endpoint, headers, supplier_id, products_limit=100):
     variants = []
@@ -120,7 +186,6 @@ def fetch_supplied_product_variants(api_endpoint, headers, supplier_id, products
 
     return variants
 
-# Hämtar alla leverantörer + deras productVariants
 @st.cache_data(show_spinner=False)
 def fetch_all_suppliers_and_variants(api_endpoint, headers, products_limit=100):
     suppliers = fetch_all_suppliers(api_endpoint, headers)
@@ -191,7 +256,6 @@ def fetch_all_suppliers_and_variants(api_endpoint, headers, products_limit=100):
 
     return suppliers_data
 
-# Hämtar inköpspriser (unitCost) för alla produkter
 @st.cache_data(show_spinner=False)
 def fetch_all_product_costs(api_endpoint, headers, limit=100):
     cost_dict = {}
@@ -252,7 +316,6 @@ def fetch_all_product_costs(api_endpoint, headers, limit=100):
 
     return cost_dict
 
-# Hämtar all produktdata + lagerinfo + leverantör
 @st.cache_data(show_spinner=False)
 def fetch_all_products(api_endpoint, api_token, limit=200):
     headers = {
@@ -359,11 +422,11 @@ def fetch_all_products(api_endpoint, api_token, limit=200):
         return pd.DataFrame()
 
     df = pd.DataFrame(all_product_data)
+    # Sätt "Inköpspris" till cost_dict (om du inte redan har en snittkostnad)
     df["Inköpspris"] = df["ProductID"].apply(lambda pid: cost_dict.get(pid, 0.0))
     df['Stock Balance'] = pd.to_numeric(df['Stock Balance'], errors='coerce').fillna(0).astype(int)
     return df
 
-# Hämtar order/försäljningsdata
 @st.cache_data(show_spinner=False)
 def fetch_sales_data(api_endpoint, headers, from_date_str, to_date_str, only_shipped=False, limit=100):
     sales_data = []
@@ -465,7 +528,6 @@ def fetch_sales_data(api_endpoint, headers, from_date_str, to_date_str, only_shi
 
     return sales_data
 
-# Bearbetar försäljningsdata
 def process_sales_data(sales_data, from_date, to_date):
     if not sales_data:
         return pd.DataFrame(columns=["ProductID", "Size", "Quantity Sold", "Avg Daily Sales"])
@@ -531,3 +593,37 @@ def fetch_all_products_with_sales(api_endpoint,
     merged_df['Days to Zero'] = merged_df['Days to Zero'].replace('', None)
 
     return merged_df
+
+def add_incoming_stock_columns(df):
+    """
+    Skapar kolumner:
+      - 'Incoming Qty' = summan av Quantity ordered för IsActive == True
+      - 'Stock + Incoming' = Stock Balance + Incoming Qty
+    Endast ordrar med 'IsActive=True' räknas.
+    """
+    if 'all_orders' not in st.session_state:
+        # Inga ordrar alls
+        df['Incoming Qty'] = 0
+        df['Stock + Incoming'] = df['Stock Balance']
+        return df
+
+    active_orders = st.session_state.all_orders[st.session_state.all_orders['IsActive'] == True].copy()
+    if active_orders.empty:
+        # Inga aktiva
+        df['Incoming Qty'] = 0
+        df['Stock + Incoming'] = df['Stock Balance']
+        return df
+
+    # Summera
+    incoming_df = (
+        active_orders
+        .groupby(['ProductID', 'Size'], as_index=False)['Quantity ordered']
+        .sum()
+        .rename(columns={'Quantity ordered': 'Incoming Qty'})
+    )
+
+    out = pd.merge(df, incoming_df, on=['ProductID', 'Size'], how='left')
+    out['Incoming Qty'] = out['Incoming Qty'].fillna(0).astype(int)
+    out['Stock + Incoming'] = out['Stock Balance'] + out['Incoming Qty']
+
+    return out
