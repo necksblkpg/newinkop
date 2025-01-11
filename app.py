@@ -64,22 +64,29 @@ def main():
     if "product_costs" not in st.session_state:
         st.session_state["product_costs"] = load_product_costs()
 
+    # Lägg till efter övrig session_state initiering
+    if "selected_delivery" not in st.session_state:
+        st.session_state.selected_delivery = None
+    
+    if "delivery_status" not in st.session_state:
+        st.session_state.delivery_status = {
+            "pending": [],    # Lista över väntande leveranser
+            "completed": []   # Lista över avklarade leveranser
+        }
+
     st.title("Inköpssystem för småföretag")
 
-    tab_stats, tab_orders, tab_delivery = st.tabs([
+    # Förenkla huvudnavigering till två flikar
+    tab_stats, tab_deliveries = st.tabs([
         "📊 Statistik & Översikt", 
-        "📦 Beställningar",
-        "🛬 Mottag Leverans"
+        "📦 Leveranser"
     ])
 
     with tab_stats:
         render_statistics_tab(api_endpoint, api_token)
 
-    with tab_orders:
-        render_orders_tab()
-
-    with tab_delivery:
-        render_delivery_tab()
+    with tab_deliveries:
+        render_deliveries_tab()
 
 
 def render_statistics_tab(api_endpoint, api_token):
@@ -194,282 +201,107 @@ def render_statistics_tab(api_endpoint, api_token):
                     st.error("Något gick fel vid push till Google Sheets.")
 
 
-def render_orders_tab():
+def render_deliveries_tab():
     """
-    Visar två sub-tabs:
-      1) Aktiva ordrar
-      2) Inaktiva ordrar
+    Huvudvy för leveranshantering som visar:
+    1. Skapa ny leverans
+    2. Väntande leveranser
+    3. Avklarade leveranser
     """
+    if "delivery_view" not in st.session_state:
+        st.session_state.delivery_view = "list"
+        
+    if "selected_delivery" not in st.session_state:
+        st.session_state.selected_delivery = None
 
-    sub_tab_active, sub_tab_inactive = st.tabs(["Aktiva ordrar", "Inaktiva ordrar"])
-
-    with sub_tab_active:
-        render_active_orders_ui()
-
-    with sub_tab_inactive:
-        render_inactive_orders_ui()
-
-    st.markdown("---")
-
-    st.subheader("Importera beställningar från CSV")
-    uploaded_file = st.file_uploader("Välj CSV-fil", type=["csv"])
-    if uploaded_file:
-        try:
-            with st.spinner("Importerar beställningar..."):
-                imported_df = pd.read_csv(uploaded_file)
-                required_cols = ["ProductID", "Size", "Quantity ordered"]
-                if all(c in imported_df.columns for c in required_cols):
-                    imported_df['ProductID'] = imported_df['ProductID'].astype(str)
-                    imported_df['Quantity ordered'] = pd.to_numeric(imported_df['Quantity ordered'], errors='coerce').fillna(0)
-                    valid = imported_df[imported_df['Quantity ordered'] > 0].copy()
-                    if not valid.empty:
-                        valid['OrderDate'] = pd.Timestamp.now().strftime('%Y-%m-%d')
-                        valid['IsActive'] = True
-
-                        st.session_state.all_orders = pd.concat([st.session_state.all_orders, valid], ignore_index=True)
-                        save_orders_to_file()
-                        st.success(f"Importerade {len(valid)} beställningar.")
-                        # Uppdatera lager i merged_df
-                        if 'merged_df' in st.session_state:
-                            merged_df = st.session_state['merged_df'].copy()
-                            for _, row in valid.iterrows():
-                                mask = (
-                                    (merged_df['ProductID'].astype(str) == row['ProductID']) &
-                                    (merged_df['Size'].astype(str) == row['Size'])
-                                )
-                                if any(mask):
-                                    # Här kan man välja att inte direkt öka Stock Balance
-                                    # utan bara låta "Incoming Qty" vara
-                                    # MEN om du vill att Import = direkt påfyllning, kan du göra:
-                                    # merged_df.loc[mask, 'Stock Balance'] += row['Quantity ordered']
-                                    pass
-
-                            merged_df = add_incoming_stock_columns(merged_df)
-                            st.session_state['merged_df'] = merged_df
-                            st.info("Lagersaldo uppdaterat (Incoming Qty) i Statistik & Översikt.")
-
-                    else:
-                        st.warning("Inga giltiga rader i CSV-filen (måste ha Quantity ordered > 0).")
-                else:
-                    st.error(f"Krävda kolumner saknas. Behöver: {', '.join(required_cols)}")
-        except Exception as e:
-            st.error(f"Något gick fel: {str(e)}")
-
-    st.markdown("### Manuell beställning")
-    with st.expander("Lägg till beställning manuellt"):
-        product_id = st.text_input("ProduktID")
-        size = st.text_input("Storlek")
-        qty = st.number_input("Kvantitet", min_value=1)
-        if st.button("Lägg till order"):
-            if product_id and size:
-                new_order = {
-                    "OrderDate": pd.Timestamp.now().strftime('%Y-%m-%d'),
-                    "ProductID": product_id,
-                    "Size": size,
-                    "Quantity ordered": qty,
-                    "IsActive": True
-                }
-                st.session_state.all_orders = pd.concat(
-                    [st.session_state.all_orders, pd.DataFrame([new_order])],
-                    ignore_index=True
-                )
-                save_orders_to_file()
-
-                if 'merged_df' in st.session_state:
-                    merged_df = st.session_state['merged_df'].copy()
-                    # Samma notering här som ovan, vill du öka lagret direkt eller bara ha det i “Incoming”?
-                    # merged_df.loc[mask, 'Stock Balance'] += qty
-                    merged_df = add_incoming_stock_columns(merged_df)
-                    st.session_state['merged_df'] = merged_df
-
-                st.success("Ny beställning tillagd!")
-            else:
-                st.warning("Fyll i ProduktID och Storlek.")
-
-
-def render_active_orders_ui():
-    st.subheader("Aktiva ordrar")
-    # Filtrera ut aktiva
-    active_orders = st.session_state.all_orders[st.session_state.all_orders['IsActive'] == True].copy()
-
-    if active_orders.empty:
-        st.info("Inga aktiva ordrar")
+    # Visa specifika vyer
+    if st.session_state.delivery_view == "process":
+        render_delivery_processor()
+        return
+    
+    if st.session_state.delivery_view == "create":
+        render_delivery_creator()
         return
 
-    # sortera
-    active_orders = active_orders.sort_values('OrderDate', ascending=False).reset_index(drop=True)
+    # Huvudvy
+    col1, col2 = st.columns([4, 1])
+    with col1:
+        st.header("Leveranser")
+    with col2:
+        st.button("+ Ny leverans", 
+            type="primary",
+            on_click=lambda: setattr(st.session_state, 'delivery_view', 'create'),
+            use_container_width=True)
 
-    edited_active_orders = st.data_editor(
-        active_orders,
-        key="active_orders_editor",
-        use_container_width=True,
-        column_config={
-            "IsActive": st.column_config.CheckboxColumn("Aktiv?", help="Avmarkera för att inaktivera"),
-            "OrderDate": st.column_config.TextColumn("OrderDate", disabled=True),
-            "ProductID": st.column_config.TextColumn("ProductID", disabled=True),
-            "Size": st.column_config.TextColumn("Size", disabled=True),
-            "Quantity ordered": st.column_config.NumberColumn("Quantity", disabled=True),
-        },
-        num_rows="dynamic"
-    )
-
-    if st.button("Uppdatera aktiva ordrar"):
-        st.session_state.all_orders.update(edited_active_orders)
-        save_orders_to_file()
-        st.success("Aktiva ordrar uppdaterade!")
-        # Uppdatera merged_df
-        if 'merged_df' in st.session_state:
-            merged_df = st.session_state['merged_df'].copy()
-            merged_df = add_incoming_stock_columns(merged_df)
-            st.session_state['merged_df'] = merged_df
-            st.info("Statistik & översikt uppdaterad.")
-
-
-def render_inactive_orders_ui():
-    st.subheader("Inaktiva ordrar")
-    # Filtrera ut inaktiva
-    inactive_orders = st.session_state.all_orders[st.session_state.all_orders['IsActive'] == False].copy()
-    if inactive_orders.empty:
-        st.info("Inga inaktiva ordrar")
-        return
-
-    # sortera
-    inactive_orders = inactive_orders.sort_values('OrderDate', ascending=False).reset_index(drop=True)
-
-    edited_inactive_orders = st.data_editor(
-        inactive_orders,
-        key="inactive_orders_editor",
-        use_container_width=True,
-        column_config={
-            "IsActive": st.column_config.CheckboxColumn("Aktiv?", help="Markera för att återaktivera"),
-            "OrderDate": st.column_config.TextColumn("OrderDate", disabled=True),
-            "ProductID": st.column_config.TextColumn("ProductID", disabled=True),
-            "Size": st.column_config.TextColumn("Size", disabled=True),
-            "Quantity ordered": st.column_config.NumberColumn("Quantity", disabled=True),
-        },
-        num_rows="dynamic"
-    )
-
-    if st.button("Uppdatera inaktiva ordrar"):
-        st.session_state.all_orders.update(edited_inactive_orders)
-        save_orders_to_file()
-        st.success("Inaktiva ordrar uppdaterade!")
-        # Uppdatera merged_df
-        if 'merged_df' in st.session_state:
-            merged_df = st.session_state['merged_df'].copy()
-            merged_df = add_incoming_stock_columns(merged_df)
-            st.session_state['merged_df'] = merged_df
-            st.info("Statistik & översikt uppdaterad.")
-
-
-# ----------------------------------------------------------------
-#  Ny tab: Mottag Leverans
-# ----------------------------------------------------------------
-def render_delivery_tab():
-    """
-    Här kan vi stämma av leveranser (dvs när varor faktiskt anlänt).
-    Vi gör en enkel version:
-      1. Ange ProductID och storlek
-      2. Ange hur mycket som levererats (QTY delivered)
-      3. Ange “Baspris” (eller låt systemet hämta “Inköpspris”)
-      4. Ange frakt, ev. valutakurs
-      5. Beräkna ny “snittkostnad”
-      6. Uppdatera lagersaldo i merged_df
-      7. Sätt order (IsActive=False) om du vill
-    """
-    st.header("Mottag Leverans")
-
-    if "merged_df" not in st.session_state:
-        st.info("Ingen produktdata i systemet ännu. Hämta i Statistik & Översikt först.")
-        return
-
-    merged_df = st.session_state["merged_df"].copy()
-
-    # Välj Produkt
-    product_ids = merged_df["ProductID"].unique().tolist()
-    product_id = st.selectbox("Välj ProduktID", options=["-"] + product_ids)
-    if product_id == "-":
-        st.stop()
-
-    # Filtrera storlekar
-    product_data = merged_df[merged_df["ProductID"] == product_id].copy()
-    sizes = product_data["Size"].unique().tolist()
-    size = st.selectbox("Välj Storlek", options=["-"] + sizes)
-    if size == "-":
-        st.stop()
-
-    mask = (merged_df["ProductID"] == product_id) & (merged_df["Size"] == size)
-    current_stock = merged_df.loc[mask, "Stock Balance"].values[0]
-    current_cost_in_df = merged_df.loc[mask, "Inköpspris"].values[0]
-
-    st.write(f"Aktuellt lager: **{current_stock}** st")
-    st.write(f"Nuvarande inköpspris i merged_df: **{current_cost_in_df}** (separat från snittkostnadstabellen)")
-
-    # Hämta eventuell tidigare snittkostnad
-    existing_avg_cost = get_current_avg_cost(product_id)
-    st.write(f"Registrerat snittpris i product_costs.csv: **{existing_avg_cost}**")
-
-    colA, colB, colC = st.columns(3)
-    with colA:
-        qty_delivered = st.number_input("QTY levererad", min_value=1, value=10)
-    with colB:
-        fraktkostnad = st.number_input("Fraktkostnad (total)", min_value=0.0, value=0.0)
-    with colC:
-        valutafaktor = st.number_input("Valutafaktor", min_value=0.0, value=1.0, help="Multiplicera grundpris med denna faktor")
-
-    # Exempel: Ny kostnad/produkt = (grundpris * valutafaktor) + (frakt / qty_delivered)
-    # Du kan byta logik självklart
-    st.markdown("##### Beräkning av nytt leveranspris per enhet")
-    base_price = current_cost_in_df * valutafaktor
-    if qty_delivered > 0:
-        frakt_per_enhet = fraktkostnad / float(qty_delivered)
+    # Väntande leveranser
+    active_orders = st.session_state.all_orders[
+        st.session_state.all_orders['IsActive'] == True
+    ].copy()
+    
+    if not active_orders.empty:
+        grouped_orders = active_orders.groupby('OrderName').agg({
+            'OrderDate': 'first',
+            'Quantity ordered': 'sum',
+            'ProductID': 'count'
+        }).reset_index()
+        
+        # Kompakt tabell för väntande leveranser
+        st.markdown("### 📦 Väntande leveranser")
+        for _, row in grouped_orders.iterrows():
+            with st.container():
+                cols = st.columns([3, 2, 2, 2])
+                with cols[0]:
+                    st.write(f"**{row['OrderName']}**")
+                with cols[1]:
+                    st.write(f"📅 {row['OrderDate']}")
+                with cols[2]:
+                    st.write(f"🔢 {row['ProductID']} prod. ({row['Quantity ordered']} st)")
+                with cols[3]:
+                    action_col1, action_col2 = st.columns(2)
+                    with action_col1:
+                        if st.button("📥", key=f"receive_{row['OrderName']}", 
+                            help="Ta emot leverans"):
+                            st.session_state.selected_delivery = row['OrderName']
+                            st.session_state.delivery_view = "process"
+                            st.rerun()
+                    with action_col2:
+                        if st.button("❌", key=f"cancel_{row['OrderName']}", 
+                            help="Makulera leverans"):
+                            if st.session_state.get('confirm_cancel') == row['OrderName']:
+                                cancel_delivery(row['OrderName'])
+                                st.rerun()
+                            else:
+                                st.session_state.confirm_cancel = row['OrderName']
+                                st.warning(f"Klicka igen för att bekräfta makulering av '{row['OrderName']}'")
+                st.markdown("---")
     else:
-        frakt_per_enhet = 0.0
+        st.info("Inga väntande leveranser")
 
-    new_landed_cost_per_unit = round(base_price + frakt_per_enhet, 2)
-    st.write(f"**Ny “landed cost” per enhet**: {new_landed_cost_per_unit}")
-
-    # Weighted Average Cost
-    # (oldStock * existing_avg_cost + newQty * new_landed_cost) / (oldStock + newQty)
-    st.markdown("##### Uppdaterad snittkostnad (viktad)")
-    old_stock = float(current_stock)
-    old_cost = float(existing_avg_cost)
-    new_qty = float(qty_delivered)
-    new_cost = float(new_landed_cost_per_unit)
-
-    if (old_stock + new_qty) > 0:
-        updated_avg_cost = round(((old_stock * old_cost) + (new_qty * new_cost)) / (old_stock + new_qty), 2)
+    # Avklarade leveranser i en kompakt expander
+    completed_orders = st.session_state.all_orders[
+        st.session_state.all_orders['IsActive'] == False
+    ].copy()
+    
+    if not completed_orders.empty:
+        with st.expander("✅ Visa avklarade leveranser"):
+            grouped_completed = completed_orders.groupby('OrderName').agg({
+                'OrderDate': 'first',
+                'Quantity ordered': 'sum',
+                'ProductID': 'count'
+            }).reset_index()
+            
+            # Kompakt tabell för avklarade leveranser
+            for _, row in grouped_completed.iterrows():
+                cols = st.columns([3, 2, 2])
+                with cols[0]:
+                    st.write(f"**{row['OrderName']}**")
+                with cols[1]:
+                    st.write(f"📅 {row['OrderDate']}")
+                with cols[2]:
+                    st.write(f"🔢 {row['ProductID']} prod. ({row['Quantity ordered']} st)")
+                st.markdown("---")
     else:
-        updated_avg_cost = new_cost
-
-    st.write(f"**Viktad snittkostnad**: {updated_avg_cost}")
-
-    if st.button("Mottag leverans"):
-        # Uppdatera lager i merged_df
-        merged_df.loc[mask, "Stock Balance"] = merged_df.loc[mask, "Stock Balance"] + qty_delivered
-        # Sätt Inköpspris i merged_df till new_landed_cost_per_unit, om du vill
-        # eller sätt det till updated_avg_cost. Valfritt. 
-        merged_df.loc[mask, "Inköpspris"] = updated_avg_cost
-
-        # Uppdatera “product_costs.csv” med updated_avg_cost
-        update_avg_cost(product_id, updated_avg_cost)
-
-        # Eventuellt markera relevant order som levererad => IsActive=False
-        # Här gör vi ett enkelt svep: Sätt IsActive=False för en rad om den har "Quantity ordered" == qty_delivered
-        # Du kan göra mer avancerad logik förstås.
-        for idxo, rowo in st.session_state.all_orders.iterrows():
-            if rowo["ProductID"] == product_id and rowo["Size"] == size and rowo["IsActive"] == True:
-                # Du kan kolla om qty_delivered >= rowo["Quantity ordered"] etc.
-                st.session_state.all_orders.at[idxo, "IsActive"] = False
-
-        save_orders_to_file()
-
-        # Spara nya merged_df
-        merged_df = add_incoming_stock_columns(merged_df)
-        st.session_state["merged_df"] = merged_df
-
-        st.success("Leverans mottagen! Lager & snittkostnad uppdaterad.")
-
+        st.info("Inga avklarade leveranser")
 
 def load_orders_from_file():
     """
@@ -479,6 +311,7 @@ def load_orders_from_file():
     if 'all_orders' not in st.session_state:
         st.session_state.all_orders = pd.DataFrame(columns=[
             'OrderDate',
+            'OrderName',
             'ProductID',
             'Size',
             'Quantity ordered',
@@ -492,6 +325,9 @@ def load_orders_from_file():
             # Om IsActive inte finns i fil -> sätt True
             if "IsActive" not in df.columns:
                 df["IsActive"] = True
+            # Om OrderName inte finns -> sätt datum som namn
+            if "OrderName" not in df.columns:
+                df["OrderName"] = "Beställning " + df["OrderDate"]
             df['Quantity ordered'] = pd.to_numeric(df['Quantity ordered'], errors='coerce').fillna(0)
             st.session_state.all_orders = df
             logger.info("Ordrar laddade från fil.")
@@ -546,6 +382,346 @@ def custom_style():
         </style>
         """, unsafe_allow_html=True)
 
+def handle_delivery_completion(delivery_df):
+    """Hanterar godkännande av en leverans"""
+    order_name = delivery_df['OrderName'].iloc[0]
+    
+    # Uppdatera lagersaldo och inaktivera ordern
+    mask = st.session_state.all_orders['OrderName'] == order_name
+    st.session_state.all_orders.loc[mask, 'IsActive'] = False
+    
+    # Uppdatera merged_df med nya lagersaldon
+    if 'merged_df' in st.session_state:
+        merged_df = st.session_state['merged_df'].copy()
+        for _, row in delivery_df.iterrows():
+            product_mask = (
+                (merged_df['ProductID'] == row['ProductID']) &
+                (merged_df['Size'] == row['Size'])
+            )
+            if any(product_mask):
+                merged_df.loc[product_mask, 'Stock Balance'] += row['Mottagen mängd']
+        
+        merged_df = add_incoming_stock_columns(merged_df)
+        st.session_state['merged_df'] = merged_df
+    
+    # Spara ändringar
+    save_orders_to_file()
+
+def render_delivery_processor():
+    """
+    Dedikerad sida för att hantera en leverans som precis anlänt.
+    Här stämmer man av mottagen kvantitet och kvalitet innan leveransen godkänns.
+    """
+    # Visa tillbaka-knapp
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col1:
+        if st.button("← Tillbaka till leveranser"):
+            st.session_state.delivery_view = "list"
+            st.session_state.selected_delivery = None
+            if "delivery_check" in st.session_state:
+                del st.session_state.delivery_check
+            st.rerun()
+
+    st.header("Hantera inkommande leverans")
+    
+    # Hämta leveransdata
+    order_name = st.session_state.selected_delivery
+    order_data = st.session_state.all_orders[
+        (st.session_state.all_orders['OrderName'] == order_name) & 
+        (st.session_state.all_orders['IsActive'] == True)
+    ].copy()
+    
+    # Visa leveransöversikt
+    st.subheader(f"📦 {order_name}")
+    col1, col2 = st.columns(2)
+    with col1:
+        st.info(f"Orderdatum: {order_data['OrderDate'].iloc[0]}")
+    with col2:
+        st.info(f"Antal produkter: {len(order_data)}")
+    
+    # Initiera leveranskontroll om det inte redan gjorts
+    if "delivery_check" not in st.session_state:
+        delivery_check = order_data.copy()
+        delivery_check['Mottagen mängd'] = delivery_check['Quantity ordered']
+        delivery_check['Kvalitet OK'] = False
+        delivery_check['Kommentar'] = ''
+        st.session_state.delivery_check = delivery_check
+
+    # Visa instruktioner
+    st.markdown("---")
+    st.markdown("### 📋 Instruktioner")
+    st.markdown("""
+    1. Kontrollera mottagen mängd för varje produkt
+    2. Markera kvaliteten som OK när produkten är kontrollerad
+    3. Lägg till kommentarer vid behov
+    4. Tryck på 'Godkänn leverans' när allt är klart
+    """)
+    
+    # Visa och hantera produkter
+    edited_df = st.data_editor(
+        st.session_state.delivery_check,
+        key="delivery_processor",
+        use_container_width=True,
+        column_config={
+            "OrderName": None,  # Dölj dessa kolumner
+            "OrderDate": None,
+            "IsActive": None,
+            "ProductID": st.column_config.TextColumn("ProduktID", disabled=True),
+            "Size": st.column_config.TextColumn("Storlek", disabled=True),
+            "Quantity ordered": st.column_config.NumberColumn(
+                "Beställd mängd", 
+                disabled=True,
+                help="Ursprungligt beställd mängd"
+            ),
+            "Mottagen mängd": st.column_config.NumberColumn(
+                "Mottagen mängd",
+                help="Ange faktiskt mottagen mängd",
+                min_value=0
+            ),
+            "Kvalitet OK": st.column_config.CheckboxColumn(
+                "✓ Kvalitet OK",
+                help="Markera när produktens kvalitet är kontrollerad och godkänd"
+            ),
+            "Kommentar": st.column_config.TextColumn(
+                "Kommentar",
+                help="Lägg till eventuell kommentar om avvikelser"
+            ),
+        }
+    )
+    
+    # Uppdatera session state med ändringar
+    st.session_state.delivery_check = edited_df
+    
+    # Visa sammanfattning och avvikelser
+    st.markdown("### 📊 Sammanfattning")
+    total_ordered = edited_df['Quantity ordered'].sum()
+    total_received = edited_df['Mottagen mängd'].sum()
+    products_ok = edited_df['Kvalitet OK'].sum()
+    
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Totalt beställt", total_ordered)
+    with col2:
+        st.metric("Totalt mottaget", total_received)
+    with col3:
+        st.metric("Produkter OK", f"{products_ok} av {len(edited_df)}")
+    
+    # Visa avvikelser om sådana finns
+    avvikelser = edited_df[
+        (edited_df['Quantity ordered'] != edited_df['Mottagen mängd']) |
+        (edited_df['Kommentar'].str.len() > 0)
+    ]
+    if not avvikelser.empty:
+        st.markdown("### ⚠️ Avvikelser")
+        for _, row in avvikelser.iterrows():
+            st.warning(
+                f"**{row['ProductID']} ({row['Size']})**: " +
+                f"Beställt: {row['Quantity ordered']}, Mottaget: {row['Mottagen mängd']}" +
+                (f"\nKommentar: {row['Kommentar']}" if row['Kommentar'] else "")
+            )
+    
+    # Knapp för att godkänna leveransen
+    st.markdown("---")
+    col1, col2 = st.columns(2)
+    with col2:
+        if st.button("✅ Godkänn leverans", 
+            type="primary",
+            use_container_width=True,
+            disabled=not all(edited_df['Kvalitet OK'])  # Kräv att alla produkter är OK
+        ):
+            handle_delivery_completion(edited_df)
+            st.success("✅ Leverans godkänd och arkiverad!")
+            st.session_state.delivery_view = "list"
+            st.session_state.selected_delivery = None
+            if "delivery_check" in st.session_state:
+                del st.session_state.delivery_check
+            st.rerun()
+
+def render_delivery_creator():
+    """Sida för att skapa nya leveranser"""
+    # Visa tillbaka-knapp
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col1:
+        if st.button("← Tillbaka till leveranser"):
+            st.session_state.delivery_view = "list"
+            st.rerun()
+
+    st.header("Skapa ny leverans")
+    
+    # Två sätt att skapa leverans
+    tab1, tab2 = st.tabs(["📝 Manuell inmatning", "📎 Importera från CSV"])
+    
+    with tab1:
+        st.markdown("### Lägg till produkter manuellt")
+        
+        # Formulär för leveransinfo
+        order_name = st.text_input(
+            "Namn på leveransen",
+            placeholder="T.ex. 'Höstkollektion 2024' eller 'Påfyllning basic'"
+        )
+        
+        # Skapa tom DataFrame för produkter om den inte finns
+        if "new_delivery_products" not in st.session_state:
+            st.session_state.new_delivery_products = pd.DataFrame(
+                columns=['ProductID', 'Size', 'Quantity ordered']
+            )
+        
+        # Lägg till produkt-formulär
+        with st.form("add_product_form"):
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                product_id = st.text_input("ProduktID")
+            with col2:
+                size = st.text_input("Storlek")
+            with col3:
+                quantity = st.number_input("Antal", min_value=1, value=1)
+            
+            if st.form_submit_button("Lägg till produkt"):
+                if product_id and size:
+                    new_product = pd.DataFrame([{
+                        'ProductID': product_id,
+                        'Size': size,
+                        'Quantity ordered': quantity
+                    }])
+                    st.session_state.new_delivery_products = pd.concat(
+                        [st.session_state.new_delivery_products, new_product],
+                        ignore_index=True
+                    )
+                else:
+                    st.warning("Fyll i både ProduktID och Storlek")
+        
+        # Visa tillagda produkter
+        if not st.session_state.new_delivery_products.empty:
+            st.markdown("### Tillagda produkter")
+            edited_df = st.data_editor(
+                st.session_state.new_delivery_products,
+                num_rows="dynamic",
+                use_container_width=True
+            )
+            st.session_state.new_delivery_products = edited_df
+        
+        # Knapp för att skapa leveransen
+        if st.button("Skapa leverans", 
+            disabled=not order_name or st.session_state.new_delivery_products.empty,
+            type="primary"
+        ):
+            if create_new_delivery(order_name, st.session_state.new_delivery_products):
+                st.success(f"✅ Leverans '{order_name}' skapad!")
+                # Rensa och återgå till lista
+                del st.session_state.new_delivery_products
+                st.session_state.delivery_view = "list"
+                st.rerun()
+    
+    with tab2:
+        st.markdown("### Importera från CSV")
+        st.write("CSV-filen ska innehålla kolumnerna: ProductID, Size, Quantity ordered")
+        
+        # Visa exempel
+        example_df = pd.DataFrame([
+            {"ProductID": "12345", "Size": "M", "Quantity ordered": 10},
+            {"ProductID": "67890", "Size": "L", "Quantity ordered": 5}
+        ])
+        
+        with st.expander("Visa exempel på CSV-format"):
+            st.write("Exempel på hur CSV-filen ska se ut:")
+            st.dataframe(example_df)
+            
+            # Ladda ner exempel-CSV
+            csv = example_df.to_csv(index=False)
+            st.download_button(
+                label="📥 Ladda ner exempel-CSV",
+                data=csv,
+                file_name="exempel_order.csv",
+                mime="text/csv"
+            )
+
+        # CSV-uppladdning
+        order_name = st.text_input(
+            "Namn på leveransen",
+            placeholder="T.ex. 'Höstkollektion 2024' eller 'Påfyllning basic'",
+            key="csv_order_name"
+        )
+        
+        uploaded_file = st.file_uploader("Välj CSV-fil", type=["csv"])
+        if uploaded_file and order_name:
+            try:
+                df = pd.read_csv(uploaded_file)
+                st.write("Förhandsgranskning:")
+                st.dataframe(df)
+                
+                if st.button("Importera leverans", type="primary"):
+                    if create_new_delivery(order_name, df):
+                        st.success(f"✅ Leverans '{order_name}' importerad!")
+                        st.session_state.delivery_view = "list"
+                        st.rerun()
+                    
+            except Exception as e:
+                st.error(f"Fel vid import: {str(e)}")
+
+def create_new_delivery(order_name, products_df):
+    """Skapar en ny leverans och lägger till i all_orders"""
+    try:
+        # Validera data
+        required_cols = ["ProductID", "Size", "Quantity ordered"]
+        if not all(col in products_df.columns for col in required_cols):
+            st.error(f"CSV-filen måste innehålla kolumnerna: {', '.join(required_cols)}")
+            return False
+
+        # Rensa och validera data
+        products_df = products_df.copy()
+        products_df['ProductID'] = products_df['ProductID'].astype(str)
+        products_df['Size'] = products_df['Size'].astype(str)
+        products_df['Quantity ordered'] = pd.to_numeric(products_df['Quantity ordered'], errors='coerce').fillna(0)
+        
+        # Filtrera bort rader med quantity = 0
+        valid_products = products_df[products_df['Quantity ordered'] > 0].copy()
+        
+        if valid_products.empty:
+            st.error("Inga giltiga produkter hittades (Quantity ordered måste vara > 0)")
+            return False
+
+        # Lägg till leveransinfo
+        valid_products['OrderDate'] = pd.Timestamp.now().strftime('%Y-%m-%d')
+        valid_products['OrderName'] = order_name
+        valid_products['IsActive'] = True
+
+        # Lägg till i befintliga ordrar
+        st.session_state.all_orders = pd.concat(
+            [st.session_state.all_orders, valid_products], 
+            ignore_index=True
+        )
+        save_orders_to_file()
+
+        return True
+
+    except Exception as e:
+        st.error(f"Ett fel uppstod: {str(e)}")
+        return False
+
+def cancel_delivery(order_name):
+    """Makulerar en leverans"""
+    try:
+        # Ta bort leveransen från all_orders
+        mask = st.session_state.all_orders['OrderName'] == order_name
+        st.session_state.all_orders = st.session_state.all_orders[~mask]
+        
+        # Spara ändringar
+        save_orders_to_file()
+        
+        # Uppdatera merged_df om den finns
+        if 'merged_df' in st.session_state:
+            merged_df = st.session_state['merged_df'].copy()
+            merged_df = add_incoming_stock_columns(merged_df)
+            st.session_state['merged_df'] = merged_df
+        
+        # Rensa confirm_cancel
+        if 'confirm_cancel' in st.session_state:
+            del st.session_state.confirm_cancel
+            
+        st.success(f"Leverans '{order_name}' makulerad")
+        
+    except Exception as e:
+        st.error(f"Kunde inte makulera leveransen: {str(e)}")
 
 if __name__ == "__main__":
     main()
