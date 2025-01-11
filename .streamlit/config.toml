@@ -1,0 +1,11 @@
+[server]
+headless = true
+enableCORS = false
+enableXsrfProtection = false
+enableWebsocketCompression = false
+address = "0.0.0.0"
+port = 5000
+fileWatcherType = "none"
+
+[browser]
+serverAddress = "0.0.0.0"

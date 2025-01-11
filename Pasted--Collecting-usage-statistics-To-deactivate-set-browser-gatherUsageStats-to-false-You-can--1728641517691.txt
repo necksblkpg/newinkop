@@ -1,0 +1,266 @@
+
+Collecting usage statistics. To deactivate, set browser.gatherUsageStats to false.
+
+
+  You can now view your Streamlit app in your browser.
+
+  URL: http://0.0.0.0:5000
+
+Sending query to https://scottsberry.centra.com/graphql for orders page 1
+Fetched orders page 1: 100 orders
+Sending query to https://scottsberry.centra.com/graphql for orders page 2
+Fetched orders page 2: 62 orders
+Total orders pages fetched: 2
+Total orders fetched: 162
+Total unique products in orders: 240
+Error fetching collection for product 500-21: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product SLN-05: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 3400-33: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product AH-15: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 500-14: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product VE1000-15: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product VE1000-10: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product VE11000-11: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product AHM-3: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product ITS500-19: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product S600-20: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product ITS500-60: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 300-21: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 300-35: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 200-500-51: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product VE100-10-15: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product CL-229: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 400-22: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 300-29: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product YH-1138GL: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product ITS500-111: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 200-16: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 200-51: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product O500-45: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 100-500-06: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product VE200-10: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product O500-01: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product AHM-1: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product P500-105: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 1200-04: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product FTG300-12: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product ITS500-33: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 500-44: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product P300-121: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 400-500-22: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 300-500-31: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 100-09: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 200-500-29: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 400-500-31: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product P300-114: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 300-10-26: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 400-500-11: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product TYTC0092-54: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product TZG02399: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 300-500-29: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 200-500-17: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product VE1000-17: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 500-11: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 200-500-22: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 400-41: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 500-39: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product VE300-10-16: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product TZG09872: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 100-02: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product VE100-10-17: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 200-02: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 200-500-04: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 200-04: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product Set - Heritage Brown: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 300-41: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product CSS-10: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product TZG00617: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 400-44: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 100-17: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product VE11000-12: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 300-51: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product B500-BU-S: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product VE500-11: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product VE1000-13: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product VE100-15: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product ITS500-07: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product IS100-05: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 300-500-40: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 100-10-45: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product VE200-14: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product ITS400-38: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product AHM-2: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product XM100-10: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 100-500-41: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 300-52: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product DT-500-06: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product ITS500-91: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 300-10-41: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 400-31: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 200-500-21: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product Set - Imperial Silk: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 3700-32: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 400-17: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product B1500-BL-G: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 400-52: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product VE11000-06: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product ITS400-49: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product FLB-07: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 200-21: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 500-38: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product VE1000-12: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product ITS500-49: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product SLN-11: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 200-29: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 200-14: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product SLN-02: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product B500-NV-S: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 800-15: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 500-15: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 300-02: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product ITS100-06: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product CHR-100-16: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 500-29: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product VE500-06: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product B4850-BL-S: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 100-31: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product B1500-DB-RG: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 300-22: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 500-01: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product IS100-25: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product DXK03244: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 200-05: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product VE400-15: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 400-500-17: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product DT-300-07: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 500-02: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 400-500-44: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 300-31: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 300-500-41: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product SLN-04: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product B4850-DB-S: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product B3700-BL-S: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 200-500-02: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product O500-29: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 300-40: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 300-500-22: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product FLB-03: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 500-35: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 500-45: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 200-22: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 300-500-26: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product ITS100-65: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product VE500-17: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product B1500-DB-S: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product VE100-17: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product TZG09022: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 500-17: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 700-500-15: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product T-254-B: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product VE300-10: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 200-11: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 200-500-11: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 300-500-17: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product IS100-28: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product VE500-15: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product PB-300-4: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 300-10-11: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product B1-1000: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product SLN-08: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product VE11000-13-: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 1000-15: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 100-39: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 300-500-35: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product P100-103: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 500-04: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product AH-06: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product VE500-10: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product TZG04422: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product Set - Royal forest: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 500-40: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product O500-31: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 500-51: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 300-500-51: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product ITS200-39: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 300-17: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product S600-15: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product P3300-11: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 200-500-14: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product B1600-DB-S: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product ITS500-63: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product CSS-11: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product VE1000-11: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 400-500-52: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product P500-103: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 500-18: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 500-31: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 100-06: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 500-06: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 500-22: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product STU-08: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product ITS500-109: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product VE200-15-1: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product ITS100-62: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 400-11: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product B1500-BL-MB: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 300-26: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product P500-144: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product CL-SET2: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product P100-133: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product Set - Royal Bloom: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 500-41: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product BS-500-08: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product CL-SET7: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product IS100-36: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product SLN-13: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 100-500-39: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product ITS100-52: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 400-51: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 2300-25: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product NO-300-31: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product STU-04: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 300-500-52: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 3500-33: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product VE1000-06: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 400-500-41: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product VE1000-VE11000-VE500-06: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product TC-33: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product ITS100-47: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 300-500-02: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 500-26: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 400-500-04: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 100-500-02: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product VE1000-16: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product CSS-12: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 700-15: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product Box-1: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product CL-1016-B: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product CL-SET1: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product SLN-10: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product VE1000-VE300-VE500-10: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product ITS100-12: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 200-17: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 400-29: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 800-500-15-01: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 100-33: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 300-04: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product O500-51: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product TC-13G: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 400-04: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product IS100-27: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 500-52: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 3700-31: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product 100-41: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product VE500-11-creme: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Error fetching collection for product IS100-20: 400 Client Error: Bad Request for url: https://scottsberry.centra.com/graphql
+Total products mapped to collections: 240
+Products not mapped to collections: 240
+Sample of unmapped products: ['500-21', 'SLN-05', '3400-33', 'AH-15', '500-14', 'VE1000-15', 'VE1000-10', 'VE11000-11', 'AHM-3', 'ITS500-19']
+Total products mapped to collections: 240
+Total unique products in orders: 197
+Total unique products with 'N/A' as collection: 197
+Total number of order lines: 288
+Sample of unmapped products: ['500-21', 'SLN-05', '3400-33', 'AH-15', '500-14', 'VE1000-15', 'VE1000-10', 'VE11000-11', 'AHM-3', 'ITS500-19']
+Total rows in aggregated DataFrame: 206
+Unique collections in aggregated data: 1
+Products with 'N/A' collection in aggregated data: 206

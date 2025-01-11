@@ -1,0 +1,380 @@
+
+Collecting usage statistics. To deactivate, set browser.gatherUsageStats to false.
+
+
+  You can now view your Streamlit app in your browser.
+
+  URL: http://0.0.0.0:5000
+
+Sending query to https://scottsberry.centra.com/graphql for orders page 1
+Fetched orders page 1: 100 orders
+Sending query to https://scottsberry.centra.com/graphql for orders page 2
+Fetched orders page 2: 100 orders
+Sending query to https://scottsberry.centra.com/graphql for orders page 3
+Fetched orders page 3: 100 orders
+Sending query to https://scottsberry.centra.com/graphql for orders page 4
+Fetched orders page 4: 100 orders
+Sending query to https://scottsberry.centra.com/graphql for orders page 5
+Fetched orders page 5: 100 orders
+Sending query to https://scottsberry.centra.com/graphql for orders page 6
+Fetched orders page 6: 100 orders
+Sending query to https://scottsberry.centra.com/graphql for orders page 7
+Fetched orders page 7: 100 orders
+Sending query to https://scottsberry.centra.com/graphql for orders page 8
+Fetched orders page 8: 12 orders
+Total orders pages fetched: 8
+Total orders fetched: 712
+Collection: Tessitura
+Total products in Tessitura: 166
+Collection: Utgående
+Total products in Utgående: 166
+Collection: Utgående, ej avaktivera
+Total products in Utgående, ej avaktivera: 166
+Debug: Mapping products to collections
+Warning: Product CSS-01 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product CSS-02 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product CSS-03 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product CSS-05 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product CSS-08 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product CSS-09 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product CSS-10 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product CSS-11 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product CSS-12 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product CSS-13 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product CSS-14 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product CSS-15 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product CSS-16 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS100-03 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS100-05 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS100-06 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS100-07 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS100-08 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS100-09 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS100-11 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS100-12 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS100-32 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS100-34 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS100-35 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS100-36 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS100-37 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS100-38 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS100-39 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS100-40 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS100-42 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS100-43 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS100-44 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS100-45 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS100-46 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS100-47 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS100-49 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS100-51 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS100-52 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS100-56 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS100-57 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS100-58 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS100-59 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS100-62 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS200-35 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS200-36 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS200-37 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS200-38 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS200-39 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS200-40 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS200-47 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS200-62 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS300-116 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS300-117 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS300-118 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS300-119 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS300-34 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS300-35 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS300-36 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS300-37 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS300-39 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS300-40 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS300-47 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS300-49 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS300-56 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS300-57 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS300-58 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS300-59 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS300-62 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS300-65 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS400-04 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS400-06 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS400-116 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS400-117 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS400-118 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS400-34 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS400-35 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS400-36 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS400-37 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS400-39 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS400-40 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS400-43 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS400-44 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS400-47 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS400-49 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS400-50 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS400-53 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS400-56 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS400-57 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS400-58 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS400-59 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS400-62 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS400-65 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-04 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-06 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-07 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-101 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-103 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-104 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-106 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-108 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-109 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-11 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-110 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-111 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-114 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-115 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-117 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-118 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-119 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-14 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-17 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-18 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-19 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-21 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-23 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-24 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-26 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-27 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-29 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-30 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-33 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-34 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-35 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-36 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-37 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-39 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-40 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-47 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-49 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-50 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-55 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-56 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-57 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-58 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-59 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-60 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-61 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-62 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-63 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-66 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-67 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-69 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-70 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-71 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-72 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-76 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-77 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-79 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-81 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-84 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-85 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-86 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-87 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-88 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-89 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-90 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-91 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-92 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-93 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-94 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-95 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-96 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-97 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-98 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS500-09 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product ITS100-65 is in multiple collections. Current: Tessitura, New: Utgående
+Warning: Product CSS-01 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product CSS-02 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product CSS-03 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product CSS-05 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product CSS-08 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product CSS-09 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product CSS-10 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product CSS-11 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product CSS-12 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product CSS-13 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product CSS-14 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product CSS-15 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product CSS-16 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS100-03 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS100-05 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS100-06 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS100-07 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS100-08 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS100-09 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS100-11 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS100-12 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS100-32 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS100-34 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS100-35 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS100-36 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS100-37 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS100-38 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS100-39 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS100-40 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS100-42 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS100-43 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS100-44 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS100-45 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS100-46 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS100-47 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS100-49 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS100-51 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS100-52 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS100-56 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS100-57 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS100-58 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS100-59 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS100-62 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS200-35 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS200-36 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS200-37 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS200-38 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS200-39 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS200-40 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS200-47 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS200-62 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS300-116 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS300-117 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS300-118 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS300-119 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS300-34 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS300-35 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS300-36 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS300-37 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS300-39 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS300-40 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS300-47 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS300-49 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS300-56 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS300-57 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS300-58 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS300-59 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS300-62 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS300-65 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS400-04 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS400-06 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS400-116 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS400-117 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS400-118 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS400-34 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS400-35 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS400-36 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS400-37 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS400-39 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS400-40 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS400-43 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS400-44 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS400-47 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS400-49 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS400-50 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS400-53 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS400-56 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS400-57 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS400-58 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS400-59 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS400-62 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS400-65 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-04 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-06 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-07 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-101 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-103 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-104 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-106 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-108 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-109 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-11 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-110 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-111 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-114 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-115 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-117 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-118 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-119 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-14 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-17 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-18 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-19 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-21 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-23 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-24 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-26 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-27 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-29 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-30 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-33 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-34 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-35 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-36 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-37 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-39 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-40 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-47 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-49 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-50 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-55 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-56 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-57 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-58 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-59 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-60 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-61 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-62 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-63 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-66 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-67 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-69 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-70 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-71 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-72 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-76 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-77 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-79 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-81 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-84 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-85 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-86 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-87 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-88 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-89 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-90 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-91 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-92 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-93 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-94 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-95 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-96 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-97 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-98 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS500-09 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Warning: Product ITS100-65 is in multiple collections. Current: Utgående, New: Utgående, ej avaktivera
+Total collections fetched: 3
+Total products mapped to collections: 166
+Total unique products in orders: 605
+Products in orders but not mapped to collections: 523
+Sample of unmapped products: ['VE300-15-', '664-12R', 'NO-300-31', 'VE600-18', 'B1800-03', 'VE500-03', 'VE200-12', 'TZG09512', 'B1500-DB-S', 'VE500-15']
+Debug: AH-01 is in unmapped products
+Total products mapped to collections: 166
+Total unique products in orders: 506
+Total unique products with 'N/A' as collection: 424
+Total number of order lines: 1248
+Sample of unmapped products: ['VE300-15-', '664-12R', 'NO-300-31', 'VE600-18', 'B1800-03', 'VE500-03', 'VE200-12', 'TZG09512', 'B1500-DB-S', 'VE500-15']
+Total rows in aggregated DataFrame: 552
+Unique collections in aggregated data: 2
+Products with 'N/A' collection in aggregated data: 470
+^C  Stopping...

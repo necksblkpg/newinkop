@@ -1,0 +1,14 @@
+
+# Känsliga uppgifter
+key.json
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Logs
+*.log
+
+# Lokala filer
+active_orders.csv

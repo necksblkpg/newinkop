@@ -1,0 +1,10 @@
+[project]
+name = "repl-nix-graphqldatafetcher"
+version = "0.1.0"
+description = "Add your description here"
+requires-python = ">=3.11"
+dependencies = [
+    "pandas>=2.2.3",
+    "requests>=2.32.3",
+    "streamlit>=1.39.0",
+]
