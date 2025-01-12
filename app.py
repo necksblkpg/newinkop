@@ -220,8 +220,80 @@ def render_deliveries_tab():
         return
     
     if st.session_state.delivery_view == "create":
-        render_delivery_creator()
-        return
+        st.subheader("Skapa ny leverans")
+        
+        # Uppdaterat exempel med Size
+        example_df = pd.DataFrame([
+            {
+                "ProductID": "12345",
+                "Product Number": "ABC-123",
+                "Product Name": "Exempel Produkt 1",
+                "Supplier": "Leverantör AB",
+                "Inköpspris": 100,
+                "Quantity to Order": 10,
+                "Size": "M"
+            },
+            {
+                "ProductID": "67890",
+                "Product Number": "XYZ-789",
+                "Product Name": "Exempel Produkt 2",
+                "Supplier": "Leverantör AB",
+                "Inköpspris": 150,
+                "Quantity to Order": 5,
+                "Size": "L"
+            }
+        ])
+        
+        with st.expander("Visa exempel på CSV-format"):
+            st.write("CSV-filen måste innehålla följande kolumner:")
+            st.dataframe(example_df)
+            
+            # Ladda ner exempel-CSV
+            csv = example_df.to_csv(index=False)
+            st.download_button(
+                label="📥 Ladda ner exempel-CSV",
+                data=csv,
+                file_name="exempel_order.csv",
+                mime="text/csv"
+            )
+
+        # CSV-uppladdning
+        order_name = st.text_input(
+            "Namn på leveransen",
+            placeholder="T.ex. 'Höstkollektion 2024' eller 'Påfyllning basic'",
+            key="csv_order_name"
+        )
+        
+        uploaded_file = st.file_uploader("Välj CSV-fil", type=["csv"])
+        if uploaded_file and order_name:
+            try:
+                df = pd.read_csv(uploaded_file)
+                
+                # Visa endast obligatoriska kolumner i förhandsgranskningen
+                preview_cols = [
+                    "ProductID", 
+                    "Product Number", 
+                    "Product Name", 
+                    "Supplier", 
+                    "Inköpspris", 
+                    "Quantity to Order",
+                    "Size"
+                ]
+                
+                # Skapa en kopia med endast de obligatoriska kolumnerna som finns
+                preview_df = df[preview_cols].copy()
+                
+                st.write("Förhandsgranskning:")
+                st.dataframe(preview_df)
+                
+                if st.button("Importera leverans", type="primary"):
+                    if create_new_delivery(order_name, df):
+                        st.success(f"✅ Leverans '{order_name}' importerad!")
+                        st.session_state.delivery_view = "list"
+                        st.rerun()
+                    
+            except Exception as e:
+                st.error(f"Fel vid import: {str(e)}")
 
     # Huvudvy
     col1, col2 = st.columns([4, 1])
@@ -273,6 +345,31 @@ def render_deliveries_tab():
                             else:
                                 st.session_state.confirm_cancel = row['OrderName']
                                 st.warning(f"Klicka igen för att bekräfta makulering av '{row['OrderName']}'")
+            
+                # Lägg till expander för leveransdetaljer under huvudraden
+                with st.expander("📋 Leveransdetaljer"):
+                    order_details = active_orders[
+                        active_orders['OrderName'] == row['OrderName']
+                    ].copy()
+                    
+                    # Visa alla relevanta kolumner
+                    display_cols = [
+                        'ProductID',
+                        'Product Number',
+                        'Product Name',
+                        'Supplier',
+                        'Inköpspris',
+                        'Size',
+                        'Quantity ordered'
+                    ]
+                    
+                    # Kontrollera vilka kolumner som faktiskt finns i data
+                    available_cols = [col for col in display_cols if col in order_details.columns]
+                    
+                    st.dataframe(
+                        order_details[available_cols],
+                        use_container_width=True
+                    )
                 st.markdown("---")
     else:
         st.info("Inga väntande leveranser")
@@ -537,153 +634,47 @@ def render_delivery_processor():
                 del st.session_state.delivery_check
             st.rerun()
 
-def render_delivery_creator():
-    """Sida för att skapa nya leveranser"""
-    # Visa tillbaka-knapp
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col1:
-        if st.button("← Tillbaka till leveranser"):
-            st.session_state.delivery_view = "list"
-            st.rerun()
-
-    st.header("Skapa ny leverans")
-    
-    # Två sätt att skapa leverans
-    tab1, tab2 = st.tabs(["📝 Manuell inmatning", "📎 Importera från CSV"])
-    
-    with tab1:
-        st.markdown("### Lägg till produkter manuellt")
-        
-        # Formulär för leveransinfo
-        order_name = st.text_input(
-            "Namn på leveransen",
-            placeholder="T.ex. 'Höstkollektion 2024' eller 'Påfyllning basic'"
-        )
-        
-        # Skapa tom DataFrame för produkter om den inte finns
-        if "new_delivery_products" not in st.session_state:
-            st.session_state.new_delivery_products = pd.DataFrame(
-                columns=['ProductID', 'Size', 'Quantity ordered']
-            )
-        
-        # Lägg till produkt-formulär
-        with st.form("add_product_form"):
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                product_id = st.text_input("ProduktID")
-            with col2:
-                size = st.text_input("Storlek")
-            with col3:
-                quantity = st.number_input("Antal", min_value=1, value=1)
-            
-            if st.form_submit_button("Lägg till produkt"):
-                if product_id and size:
-                    new_product = pd.DataFrame([{
-                        'ProductID': product_id,
-                        'Size': size,
-                        'Quantity ordered': quantity
-                    }])
-                    st.session_state.new_delivery_products = pd.concat(
-                        [st.session_state.new_delivery_products, new_product],
-                        ignore_index=True
-                    )
-                else:
-                    st.warning("Fyll i både ProduktID och Storlek")
-        
-        # Visa tillagda produkter
-        if not st.session_state.new_delivery_products.empty:
-            st.markdown("### Tillagda produkter")
-            edited_df = st.data_editor(
-                st.session_state.new_delivery_products,
-                num_rows="dynamic",
-                use_container_width=True
-            )
-            st.session_state.new_delivery_products = edited_df
-        
-        # Knapp för att skapa leveransen
-        if st.button("Skapa leverans", 
-            disabled=not order_name or st.session_state.new_delivery_products.empty,
-            type="primary"
-        ):
-            if create_new_delivery(order_name, st.session_state.new_delivery_products):
-                st.success(f"✅ Leverans '{order_name}' skapad!")
-                # Rensa och återgå till lista
-                del st.session_state.new_delivery_products
-                st.session_state.delivery_view = "list"
-                st.rerun()
-    
-    with tab2:
-        st.markdown("### Importera från CSV")
-        st.write("CSV-filen ska innehålla kolumnerna: ProductID, Size, Quantity ordered")
-        
-        # Visa exempel
-        example_df = pd.DataFrame([
-            {"ProductID": "12345", "Size": "M", "Quantity ordered": 10},
-            {"ProductID": "67890", "Size": "L", "Quantity ordered": 5}
-        ])
-        
-        with st.expander("Visa exempel på CSV-format"):
-            st.write("Exempel på hur CSV-filen ska se ut:")
-            st.dataframe(example_df)
-            
-            # Ladda ner exempel-CSV
-            csv = example_df.to_csv(index=False)
-            st.download_button(
-                label="📥 Ladda ner exempel-CSV",
-                data=csv,
-                file_name="exempel_order.csv",
-                mime="text/csv"
-            )
-
-        # CSV-uppladdning
-        order_name = st.text_input(
-            "Namn på leveransen",
-            placeholder="T.ex. 'Höstkollektion 2024' eller 'Påfyllning basic'",
-            key="csv_order_name"
-        )
-        
-        uploaded_file = st.file_uploader("Välj CSV-fil", type=["csv"])
-        if uploaded_file and order_name:
-            try:
-                df = pd.read_csv(uploaded_file)
-                st.write("Förhandsgranskning:")
-                st.dataframe(df)
-                
-                if st.button("Importera leverans", type="primary"):
-                    if create_new_delivery(order_name, df):
-                        st.success(f"✅ Leverans '{order_name}' importerad!")
-                        st.session_state.delivery_view = "list"
-                        st.rerun()
-                    
-            except Exception as e:
-                st.error(f"Fel vid import: {str(e)}")
-
 def create_new_delivery(order_name, products_df):
     """Skapar en ny leverans och lägger till i all_orders"""
     try:
-        # Validera data
-        required_cols = ["ProductID", "Size", "Quantity ordered"]
-        if not all(col in products_df.columns for col in required_cols):
-            st.error(f"CSV-filen måste innehålla kolumnerna: {', '.join(required_cols)}")
+        # Definiera obligatoriska kolumner
+        required_cols = [
+            "ProductID", 
+            "Product Number", 
+            "Product Name", 
+            "Supplier", 
+            "Inköpspris", 
+            "Quantity to Order",
+            "Size"
+        ]
+        
+        # Validera att alla obligatoriska kolumner finns
+        missing_cols = [col for col in required_cols if col not in products_df.columns]
+        if missing_cols:
+            st.error(f"CSV-filen saknar följande obligatoriska kolumner: {', '.join(missing_cols)}")
             return False
 
         # Rensa och validera data
-        products_df = products_df.copy()
-        products_df['ProductID'] = products_df['ProductID'].astype(str)
-        products_df['Size'] = products_df['Size'].astype(str)
-        products_df['Quantity ordered'] = pd.to_numeric(products_df['Quantity ordered'], errors='coerce').fillna(0)
+        valid_products = products_df.copy()
+        valid_products['ProductID'] = valid_products['ProductID'].astype(str)
+        valid_products['Size'] = valid_products['Size'].astype(str)
+        valid_products['Quantity to Order'] = pd.to_numeric(valid_products['Quantity to Order'], errors='coerce').fillna(0)
         
         # Filtrera bort rader med quantity = 0
-        valid_products = products_df[products_df['Quantity ordered'] > 0].copy()
+        valid_products = valid_products[valid_products['Quantity to Order'] > 0].copy()
         
         if valid_products.empty:
-            st.error("Inga giltiga produkter hittades (Quantity ordered måste vara > 0)")
+            st.error("Inga giltiga produkter hittades (Quantity to Order måste vara > 0)")
             return False
 
-        # Lägg till leveransinfo
+        # Behåll alla kolumner och lägg till de nödvändiga för systemet
         valid_products['OrderDate'] = pd.Timestamp.now().strftime('%Y-%m-%d')
         valid_products['OrderName'] = order_name
+        valid_products['Quantity ordered'] = valid_products['Quantity to Order']
         valid_products['IsActive'] = True
+        
+        # Ta bort Quantity to Order eftersom vi nu har Quantity ordered
+        valid_products = valid_products.drop(columns=['Quantity to Order'])
 
         # Lägg till i befintliga ordrar
         st.session_state.all_orders = pd.concat(
