@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Ta emot leverans: {{ order_name }}</h2>
+
+<!-- Lägg till uppdateringsknapp -->
+<form action="{{ url_for('update_current_stock', order_name=order_name) }}" method="POST" class="mb-3">
+  <button type="submit" class="btn btn-outline-primary">
+    <i class="fas fa-sync"></i> Uppdatera lagersaldo från Centra
+  </button>
+</form>
+
+<form method="POST">
+  <input type="hidden" name="rowcount" value="{{ rowcount }}">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>ProductID</th>
+        <th>Storlek</th>
+        <th>Nuvarande lager</th>
+        <th>Beställd</th>
+        <th>Mottagen</th>
+        <th>PurchasePrice</th>
+        <th>Kommentar</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for row in details %}
+      <tr>
+        <td>
+          <input type="text" class="form-control-plaintext" readonly
+            name="product_id_{{ loop.index0 }}" value="{{ row.ProductID }}">
+        </td>
+        <td>
+          <input type="text" class="form-control-plaintext" readonly
+            name="size_{{ loop.index0 }}" value="{{ row.Size }}">
+        </td>
+        <td>
+          <input type="number" class="form-control-plaintext" readonly
+            name="current_stock_{{ loop.index0 }}" value="{{ row.get('Current Stock', 0) }}">
+        </td>
+        <td>
+          <input type="number" class="form-control-plaintext" readonly
+            name="quantity_ordered_{{ loop.index0 }}" value="{{ row['Quantity ordered'] }}">
+        </td>
+        <td>
+          <input type="number" class="form-control" 
+            name="quantity_received_{{ loop.index0 }}" value="{{ row['Quantity ordered'] }}" min="0">
+        </td>
+        <td>
+          <input type="number" class="form-control-plaintext" readonly
+            name="purchase_price_{{ loop.index0 }}" value="{{ row['PurchasePrice'] }}" step="0.01">
+        </td>
+        <td>
+          <input type="text" class="form-control" name="comment_{{ loop.index0 }}" placeholder="Kommentar">
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <button type="submit" class="btn btn-success">Godkänn leverans</button>
+  <a href="{{ url_for('deliveries') }}" class="btn btn-secondary">Avbryt</a>
+</form>
+{% endblock %}

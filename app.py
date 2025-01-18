@@ -1,718 +1,460 @@
 # app.py
 #
-# Uppdaterad huvudfil. Nu har vi tre flikar:
-#  1) Statistik & Översikt
-#  2) Beställningar
-#  3) Mottag Leverans (NY) - för att stämma av leveranser och uppdatera snittkostnad
+# Flask-version av din applikation. 
+# @app.before_first_request är borttaget (Flask 3.x)
+# I stället kallas initialize_app() direkt i if __name__ == "__main__":-blocket.
 
+from flask import Flask, request, render_template, redirect, url_for, flash
 import os
-import pathlib
-import streamlit as st
-import pandas as pd
-import numpy as np
-from datetime import datetime, timedelta
 import logging
+import pandas as pd
+from datetime import datetime, timedelta
 
+# Importera hjälpfunktioner från våra andra filer
 from data import (
+    init_data_store,
     fetch_all_products_with_sales,
-    load_product_costs,
-    save_product_costs,
-    get_current_avg_cost,
-    update_avg_cost,
-    add_incoming_stock_columns,  # nu kommer den från data.py
-    PRODUCT_COSTS_FILE
+    load_orders_from_file,
+    save_orders_to_file,
+    create_new_delivery,
+    cancel_delivery,
+    handle_delivery_completion,
+    get_active_deliveries_summary,
+    get_completed_deliveries_summary,
+    get_delivery_details,
+    verify_active_delivery,
+    get_current_stock_from_centra,
+    test_stock_query
 )
 from sheets import push_to_google_sheets
 
-from data import (
-    fetch_all_product_costs,
-    fetch_sales_data,
-    process_sales_data,
-    merge_product_and_sales_data,
-    calculate_reorder_metrics
-)
+app = Flask(__name__)
+app.secret_key = "hemlig-nyckel"  # Byt ut mot något säkrare i produktion
 
-# Filnamn för lagring av ordrar
-ACTIVE_ORDERS_FILE = "active_orders.csv"
-
+# Konfiguration av logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[logging.FileHandler("app.log"),
-              logging.StreamHandler()]
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
-logger = logging.getLogger(__name__)
+
+def initialize_app():
+    """
+    Körs en gång när servern startar.
+    Laddar/Initierar data och CSV:er m.m.
+    """
+    init_data_store()  # skapar product_costs.csv om den inte finns
+    load_orders_from_file()  # laddar active_orders.csv om den finns
+    logging.info("Applikationen är initierad!")
 
 
-def main():
-    st.set_page_config(
-        page_title="Inköpssystem för småföretag",
-        layout="wide",
-    )
-
-    custom_style()
-
-    api_endpoint = os.environ.get('YOUR_API_ENDPOINT')
-    api_token = os.environ.get('CENTRA_API_TOKEN')
-
-    if not api_endpoint or not api_token:
-        st.error("API-endpoint och/eller token saknas. Ställ in miljövariabler och starta om.")
-        return
-
-    # Initiera ordrar samt product_costs i session_state
-    load_orders_from_file()
-    if "product_costs" not in st.session_state:
-        st.session_state["product_costs"] = load_product_costs()
-
-    # Lägg till efter övrig session_state initiering
-    if "selected_delivery" not in st.session_state:
-        st.session_state.selected_delivery = None
-    
-    if "delivery_status" not in st.session_state:
-        st.session_state.delivery_status = {
-            "pending": [],    # Lista över väntande leveranser
-            "completed": []   # Lista över avklarade leveranser
-        }
-
-    st.title("Inköpssystem för småföretag")
-
-    # Förenkla huvudnavigering till två flikar
-    tab_stats, tab_deliveries = st.tabs([
-        "📊 Statistik & Översikt", 
-        "📦 Leveranser"
-    ])
-
-    with tab_stats:
-        render_statistics_tab(api_endpoint, api_token)
-
-    with tab_deliveries:
-        render_deliveries_tab()
+@app.route('/')
+def index():
+    """
+    Enkel startsida.
+    """
+    return render_template("index.html")
 
 
-def render_statistics_tab(api_endpoint, api_token):
-    st.subheader("Välj datumintervall och filtrera produkter")
-
+# --------------------------------------------
+# Statistik & Översikt
+# --------------------------------------------
+@app.route('/stats', methods=['GET', 'POST'])
+def stats():
+    """
+    Visar formulär för datum, filter m.m. samt hämtar och visar tabell.
+    Tillåter även push till Google Sheets.
+    """
+    # Förifyll datum
     today = datetime.today()
     default_from_date = (today - timedelta(days=30)).strftime('%Y-%m-%d')
     default_to_date = today.strftime('%Y-%m-%d')
 
-    col1, col2 = st.columns(2)
-    with col1:
-        from_date = st.date_input("Från Datum", value=datetime.strptime(default_from_date, '%Y-%m-%d'))
-    with col2:
-        to_date = st.date_input("Till Datum", value=datetime.strptime(default_to_date, '%Y-%m-%d'))
+    if request.method == 'POST':
+        # Hämta värden från formuläret
+        from_date_str = request.form.get("from_date", default_from_date)
+        to_date_str = request.form.get("to_date", default_to_date)
+        active_filter = (request.form.get("active_filter") == "on")
+        bundle_filter = (request.form.get("bundle_filter") == "on")
+        exclude_supplier = (request.form.get("exclude_supplier") == "on")
+        shipped_filter = (request.form.get("shipped_filter") == "on")
+        lead_time = int(request.form.get("lead_time", 7))
+        safety_stock = int(request.form.get("safety_stock", 10))
 
-    from_date_str = from_date.strftime('%Y-%m-%d')
-    to_date_str = to_date.strftime('%Y-%m-%d')
+        # Hämta API env-variabler
+        api_endpoint = os.environ.get('YOUR_API_ENDPOINT')
+        api_token = os.environ.get('CENTRA_API_TOKEN')
+        if not api_endpoint or not api_token:
+            flash("API-endpoint och/eller token saknas. Sätt miljövariabler!", "error")
+            return redirect(url_for("stats"))
 
-    st.markdown("### Filteralternativ")
-    colA, colB, colC, colD = st.columns(4)
-    with colA:
-        active_filter = st.checkbox("✅ Endast aktiva", value=True)
-    with colB:
-        bundle_filter = st.checkbox("🚫 Exkl. Bundles", value=True)
-    with colC:
-        exclude_supplier = st.checkbox("🚫 Exkl. 'Utgående produkt'", value=True)
-    with colD:
-        shipped_filter = st.checkbox("📦 Endast SHIPPED", value=True)
-
-    st.markdown("### Lagerparametrar")
-    colLT, colSS = st.columns(2)
-    with colLT:
-        lead_time = st.number_input("⏱️ Leveranstid (dagar)", min_value=1, value=7)
-    with colSS:
-        safety_stock = st.number_input("🛡️ Säkerhetslager", min_value=0, value=10)
-
-    st.markdown("---")
-
-    if st.button("Hämta Produkt- och Försäljningsdata"):
-        with st.spinner("Hämtar data..."):
-            df = fetch_all_products_with_sales(
-                api_endpoint, api_token,
-                from_date_str, to_date_str,
-                lead_time, safety_stock,
-                only_shipped=shipped_filter
-            )
-
-        if df is not None and not df.empty:
-            if active_filter and 'Status' in df.columns:
-                df = df[df['Status'] == "ACTIVE"]
-            if bundle_filter and 'Is Bundle' in df.columns:
-                df = df[df['Is Bundle'] == False]
-            if exclude_supplier and 'Supplier' in df.columns:
-                df = df[df['Supplier'] != "Utgående produkt"]
-
-            if df.empty:
-                st.warning("Inga produkter matchade dina filter.")
-                return
-
-            # Lägg på apostrof för "Product Number"
-            if 'Product Number' in df.columns:
-                df['Product Number'] = "'" + df['Product Number'].astype(str)
-
-            # Lägg till inkommande kvantitet för enbart aktiva ordrar
-            df = add_incoming_stock_columns(df)
-
-            desired_order = [
-                "ProductID",
-                "Product Number",
-                "Size",
-                "Product Name",
-                "Status",
-                "Is Bundle",
-                "Supplier",
-                "Inköpspris",
-                "Quantity Sold",
-                "Stock Balance",
-                "Incoming Qty",
-                "Stock + Incoming",
-                "Avg Daily Sales",
-                "Days to Zero",
-                "Reorder Level",
-                "Quantity to Order",
-                "Need to Order"
-            ]
-            cols_we_have = [c for c in desired_order if c in df.columns]
-            df = df[cols_we_have]
-
-            # Nollställ "Quantity to Order" kolumnen (används bl.a. vid import)
-            if 'Quantity to Order' in df.columns:
-                df['Quantity to Order'] = ''
-
-            st.session_state['merged_df'] = df.copy()
-            st.success("Data hämtad framgångsrikt!")
-            st.dataframe(df, use_container_width=True)
-
-        else:
-            st.error("Misslyckades med att hämta data eller ingen data fanns.")
-
-    # Push till Sheets
-    if 'merged_df' in st.session_state:
-        merged_df = st.session_state['merged_df']
-        st.markdown("---")
-        if st.button("📤 Push Data till Google Sheets"):
-            with st.spinner("Pushar data..."):
-                filtered_df = merged_df.replace([np.inf, -np.inf], np.nan).fillna('')
-                sheet_name = f"Produkt_Försäljning_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-                sheet_url = push_to_google_sheets(filtered_df, sheet_name)
-                if sheet_url:
-                    st.success(f"Data pushad till Google Sheets! [Öppna Sheet]({sheet_url})")
-                else:
-                    st.error("Något gick fel vid push till Google Sheets.")
-
-
-def render_deliveries_tab():
-    """
-    Huvudvy för leveranshantering som visar:
-    1. Skapa ny leverans
-    2. Väntande leveranser
-    3. Avklarade leveranser
-    """
-    if "delivery_view" not in st.session_state:
-        st.session_state.delivery_view = "list"
-        
-    if "selected_delivery" not in st.session_state:
-        st.session_state.selected_delivery = None
-
-    # Visa specifika vyer
-    if st.session_state.delivery_view == "process":
-        render_delivery_processor()
-        return
-    
-    if st.session_state.delivery_view == "create":
-        st.subheader("Skapa ny leverans")
-        
-        # Uppdaterat exempel med Size
-        example_df = pd.DataFrame([
-            {
-                "ProductID": "12345",
-                "Product Number": "ABC-123",
-                "Product Name": "Exempel Produkt 1",
-                "Supplier": "Leverantör AB",
-                "Inköpspris": 100,
-                "Quantity to Order": 10,
-                "Size": "M"
-            },
-            {
-                "ProductID": "67890",
-                "Product Number": "XYZ-789",
-                "Product Name": "Exempel Produkt 2",
-                "Supplier": "Leverantör AB",
-                "Inköpspris": 150,
-                "Quantity to Order": 5,
-                "Size": "L"
-            }
-        ])
-        
-        with st.expander("Visa exempel på CSV-format"):
-            st.write("CSV-filen måste innehålla följande kolumner:")
-            st.dataframe(example_df)
-            
-            # Ladda ner exempel-CSV
-            csv = example_df.to_csv(index=False)
-            st.download_button(
-                label="📥 Ladda ner exempel-CSV",
-                data=csv,
-                file_name="exempel_order.csv",
-                mime="text/csv"
-            )
-
-        # CSV-uppladdning
-        order_name = st.text_input(
-            "Namn på leveransen",
-            placeholder="T.ex. 'Höstkollektion 2024' eller 'Påfyllning basic'",
-            key="csv_order_name"
+        # Hämta & processa data
+        df = fetch_all_products_with_sales(
+            api_endpoint=api_endpoint,
+            api_token=api_token,
+            from_date_str=from_date_str,
+            to_date_str=to_date_str,
+            lead_time=lead_time,
+            safety_stock=safety_stock,
+            only_shipped=shipped_filter
         )
-        
-        uploaded_file = st.file_uploader("Välj CSV-fil", type=["csv"])
-        if uploaded_file and order_name:
-            try:
-                df = pd.read_csv(uploaded_file)
-                
-                # Visa endast obligatoriska kolumner i förhandsgranskningen
-                preview_cols = [
-                    "ProductID", 
-                    "Product Number", 
-                    "Product Name", 
-                    "Supplier", 
-                    "Inköpspris", 
-                    "Quantity to Order",
-                    "Size"
-                ]
-                
-                # Skapa en kopia med endast de obligatoriska kolumnerna som finns
-                preview_df = df[preview_cols].copy()
-                
-                st.write("Förhandsgranskning:")
-                st.dataframe(preview_df)
-                
-                if st.button("Importera leverans", type="primary"):
-                    if create_new_delivery(order_name, df):
-                        st.success(f"✅ Leverans '{order_name}' importerad!")
-                        st.session_state.delivery_view = "list"
-                        st.rerun()
-                    
-            except Exception as e:
-                st.error(f"Fel vid import: {str(e)}")
+        if df is None or df.empty:
+            flash("Ingen data hittades eller fel vid hämtning.", "warning")
+            return redirect(url_for("stats"))
 
-    # Huvudvy
-    col1, col2 = st.columns([4, 1])
-    with col1:
-        st.header("Leveranser")
-    with col2:
-        st.button("+ Ny leverans", 
-            type="primary",
-            on_click=lambda: setattr(st.session_state, 'delivery_view', 'create'),
-            use_container_width=True)
+        # Filtrera
+        if active_filter and 'Status' in df.columns:
+            df = df[df['Status'] == "ACTIVE"]
+        if bundle_filter and 'Is Bundle' in df.columns:
+            df = df[df['Is Bundle'] == False]
+        if exclude_supplier and 'Supplier' in df.columns:
+            df = df[df['Supplier'] != "Utgående produkt"]
 
-    # Väntande leveranser
-    active_orders = st.session_state.all_orders[
-        st.session_state.all_orders['IsActive'] == True
-    ].copy()
-    
-    if not active_orders.empty:
-        grouped_orders = active_orders.groupby('OrderName').agg({
-            'OrderDate': 'first',
-            'Quantity ordered': 'sum',
-            'ProductID': 'count'
-        }).reset_index()
-        
-        # Kompakt tabell för väntande leveranser
-        st.markdown("### 📦 Väntande leveranser")
-        for _, row in grouped_orders.iterrows():
-            with st.container():
-                cols = st.columns([3, 2, 2, 2])
-                with cols[0]:
-                    st.write(f"**{row['OrderName']}**")
-                with cols[1]:
-                    st.write(f"📅 {row['OrderDate']}")
-                with cols[2]:
-                    st.write(f"🔢 {row['ProductID']} prod. ({row['Quantity ordered']} st)")
-                with cols[3]:
-                    action_col1, action_col2 = st.columns(2)
-                    with action_col1:
-                        if st.button("📥", key=f"receive_{row['OrderName']}", 
-                            help="Ta emot leverans"):
-                            st.session_state.selected_delivery = row['OrderName']
-                            st.session_state.delivery_view = "process"
-                            st.rerun()
-                    with action_col2:
-                        if st.button("❌", key=f"cancel_{row['OrderName']}", 
-                            help="Makulera leverans"):
-                            if st.session_state.get('confirm_cancel') == row['OrderName']:
-                                cancel_delivery(row['OrderName'])
-                                st.rerun()
-                            else:
-                                st.session_state.confirm_cancel = row['OrderName']
-                                st.warning(f"Klicka igen för att bekräfta makulering av '{row['OrderName']}'")
-            
-                # Lägg till expander för leveransdetaljer under huvudraden
-                with st.expander("📋 Leveransdetaljer"):
-                    order_details = active_orders[
-                        active_orders['OrderName'] == row['OrderName']
-                    ].copy()
-                    
-                    # Visa alla relevanta kolumner
-                    display_cols = [
-                        'ProductID',
-                        'Product Number',
-                        'Product Name',
-                        'Supplier',
-                        'Inköpspris',
-                        'Size',
-                        'Quantity ordered'
-                    ]
-                    
-                    # Kontrollera vilka kolumner som faktiskt finns i data
-                    available_cols = [col for col in display_cols if col in order_details.columns]
-                    
-                    st.dataframe(
-                        order_details[available_cols],
-                        use_container_width=True
-                    )
-                st.markdown("---")
+        # Om ingen data efter filter
+        if df.empty:
+            flash("Inga produkter matchade dina filterval.", "warning")
+            return redirect(url_for("stats"))
+
+        # Lägg på apostrof framför product number för att undvika Excel-problem
+        if 'Product Number' in df.columns:
+            df['Product Number'] = "'" + df['Product Number'].astype(str)
+
+        # Spara i global cache (DATAFRAME_CACHE) i data.py
+        from data import DATAFRAME_CACHE
+        DATAFRAME_CACHE["stats_df"] = df.copy()
+
+        # Skicka med tabell till template
+        return render_template(
+            "stats.html",
+            df_table=df.to_html(classes="table table-striped", index=False),
+            from_date=from_date_str,
+            to_date=to_date_str,
+            active_filter=active_filter,
+            bundle_filter=bundle_filter,
+            exclude_supplier=exclude_supplier,
+            shipped_filter=shipped_filter,
+            lead_time=lead_time,
+            safety_stock=safety_stock
+        )
     else:
-        st.info("Inga väntande leveranser")
+        # GET - visa tomt formulär
+        return render_template(
+            "stats.html",
+            df_table=None,
+            from_date=default_from_date,
+            to_date=default_to_date,
+            active_filter=True,
+            bundle_filter=True,
+            exclude_supplier=True,
+            shipped_filter=True,
+            lead_time=7,
+            safety_stock=10
+        )
 
-    # Avklarade leveranser i en kompakt expander
-    completed_orders = st.session_state.all_orders[
-        st.session_state.all_orders['IsActive'] == False
-    ].copy()
-    
-    if not completed_orders.empty:
-        with st.expander("✅ Visa avklarade leveranser"):
-            grouped_completed = completed_orders.groupby('OrderName').agg({
-                'OrderDate': 'first',
-                'Quantity ordered': 'sum',
-                'ProductID': 'count'
-            }).reset_index()
-            
-            # Kompakt tabell för avklarade leveranser
-            for _, row in grouped_completed.iterrows():
-                cols = st.columns([3, 2, 2])
-                with cols[0]:
-                    st.write(f"**{row['OrderName']}**")
-                with cols[1]:
-                    st.write(f"📅 {row['OrderDate']}")
-                with cols[2]:
-                    st.write(f"🔢 {row['ProductID']} prod. ({row['Quantity ordered']} st)")
-                st.markdown("---")
+
+@app.route('/stats/push_to_sheets', methods=['POST'])
+def stats_push_to_sheets():
+    """
+    Knapp som pushar nuvarande df till Google Sheets.
+    Kräver att vi har en df i DATAFRAME_CACHE["stats_df"].
+    """
+    from data import DATAFRAME_CACHE
+    df = DATAFRAME_CACHE.get("stats_df")
+    if df is None or df.empty:
+        flash("Ingen data att pusha. Hämta data först!", "warning")
+        return redirect(url_for("stats"))
+
+    # Försök pusha
+    sheet_name = f"Produkt_Försäljning_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    sheet_url = push_to_google_sheets(df, sheet_name)
+    if sheet_url:
+        flash(f"Data pushad till Google Sheets! Länk: {sheet_url}", "success")
     else:
-        st.info("Inga avklarade leveranser")
+        flash("Något gick fel vid push till Google Sheets.", "error")
 
-def load_orders_from_file():
+    return redirect(url_for("stats"))
+
+
+# --------------------------------------------
+# Leveranser
+# --------------------------------------------
+@app.route('/deliveries', methods=['GET'])
+def deliveries():
     """
-    Läser in en fil "active_orders.csv" från disk och stoppar i st.session_state.all_orders.
-    Om fil saknas -> tom dataframe.
+    Huvudlista för leveranser: väntande och avklarade.
+    Möjlighet att gå till skapande av ny leverans.
     """
-    if 'all_orders' not in st.session_state:
-        st.session_state.all_orders = pd.DataFrame(columns=[
-            'OrderDate',
-            'OrderName',
-            'ProductID',
-            'Size',
-            'Quantity ordered',
-            'IsActive'
-        ])
-
-    path = pathlib.Path(ACTIVE_ORDERS_FILE)
-    if path.is_file():
-        try:
-            df = pd.read_csv(path, dtype={"ProductID": str, "Size": str})
-            # Om IsActive inte finns i fil -> sätt True
-            if "IsActive" not in df.columns:
-                df["IsActive"] = True
-            # Om OrderName inte finns -> sätt datum som namn
-            if "OrderName" not in df.columns:
-                df["OrderName"] = "Beställning " + df["OrderDate"]
-            df['Quantity ordered'] = pd.to_numeric(df['Quantity ordered'], errors='coerce').fillna(0)
-            st.session_state.all_orders = df
-            logger.info("Ordrar laddade från fil.")
-        except Exception as e:
-            logger.error(f"Kunde inte läsa {ACTIVE_ORDERS_FILE}: {str(e)}")
-    else:
-        logger.info("Ingen fil för ordrar hittades. Skapar ny tom DF.")
-
-
-def save_orders_to_file():
-    """
-    Sparar st.session_state.all_orders till en CSV-fil.
-    """
-    if 'all_orders' not in st.session_state:
-        return
-    try:
-        st.session_state.all_orders.to_csv(ACTIVE_ORDERS_FILE, index=False)
-        logger.info("Ordrar sparade till disk.")
-    except Exception as e:
-        logger.error(f"Kunde inte spara ordrar: {str(e)}")
-
-
-def custom_style():
-    st.markdown("""
-        <style>
-            .stButton>button {
-                background-color: #0B7285;
-                color: white;
-                padding: 0.7em 1.5em;
-                border-radius: 5px;
-                border: none;
-                font-size: 0.9em;
-                margin-top: 10px;
-            }
-            .stButton>button:hover {
-                background-color: #095C68;
-            }
-            table {
-                border-collapse: collapse;
-                width: 100%;
-            }
-            th, td {
-                text-align: left;
-                padding: 8px;
-            }
-            th {
-                background-color: #f2f2f2;
-            }
-            tr:nth-child(even) {
-                background-color: #f9f9f9;
-            }
-        </style>
-        """, unsafe_allow_html=True)
-
-def handle_delivery_completion(delivery_df):
-    """Hanterar godkännande av en leverans"""
-    order_name = delivery_df['OrderName'].iloc[0]
-    
-    # Uppdatera lagersaldo och inaktivera ordern
-    mask = st.session_state.all_orders['OrderName'] == order_name
-    st.session_state.all_orders.loc[mask, 'IsActive'] = False
-    
-    # Uppdatera merged_df med nya lagersaldon
-    if 'merged_df' in st.session_state:
-        merged_df = st.session_state['merged_df'].copy()
-        for _, row in delivery_df.iterrows():
-            product_mask = (
-                (merged_df['ProductID'] == row['ProductID']) &
-                (merged_df['Size'] == row['Size'])
-            )
-            if any(product_mask):
-                merged_df.loc[product_mask, 'Stock Balance'] += row['Mottagen mängd']
-        
-        merged_df = add_incoming_stock_columns(merged_df)
-        st.session_state['merged_df'] = merged_df
-    
-    # Spara ändringar
-    save_orders_to_file()
-
-def render_delivery_processor():
-    """
-    Dedikerad sida för att hantera en leverans som precis anlänt.
-    Här stämmer man av mottagen kvantitet och kvalitet innan leveransen godkänns.
-    """
-    # Visa tillbaka-knapp
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col1:
-        if st.button("← Tillbaka till leveranser"):
-            st.session_state.delivery_view = "list"
-            st.session_state.selected_delivery = None
-            if "delivery_check" in st.session_state:
-                del st.session_state.delivery_check
-            st.rerun()
-
-    st.header("Hantera inkommande leverans")
-    
-    # Hämta leveransdata
-    order_name = st.session_state.selected_delivery
-    order_data = st.session_state.all_orders[
-        (st.session_state.all_orders['OrderName'] == order_name) & 
-        (st.session_state.all_orders['IsActive'] == True)
-    ].copy()
-    
-    # Visa leveransöversikt
-    st.subheader(f"📦 {order_name}")
-    col1, col2 = st.columns(2)
-    with col1:
-        st.info(f"Orderdatum: {order_data['OrderDate'].iloc[0]}")
-    with col2:
-        st.info(f"Antal produkter: {len(order_data)}")
-    
-    # Initiera leveranskontroll om det inte redan gjorts
-    if "delivery_check" not in st.session_state:
-        delivery_check = order_data.copy()
-        delivery_check['Mottagen mängd'] = delivery_check['Quantity ordered']
-        delivery_check['Kvalitet OK'] = False
-        delivery_check['Kommentar'] = ''
-        st.session_state.delivery_check = delivery_check
-
-    # Visa instruktioner
-    st.markdown("---")
-    st.markdown("### 📋 Instruktioner")
-    st.markdown("""
-    1. Kontrollera mottagen mängd för varje produkt
-    2. Markera kvaliteten som OK när produkten är kontrollerad
-    3. Lägg till kommentarer vid behov
-    4. Tryck på 'Godkänn leverans' när allt är klart
-    """)
-    
-    # Visa och hantera produkter
-    edited_df = st.data_editor(
-        st.session_state.delivery_check,
-        key="delivery_processor",
-        use_container_width=True,
-        column_config={
-            "OrderName": None,  # Dölj dessa kolumner
-            "OrderDate": None,
-            "IsActive": None,
-            "ProductID": st.column_config.TextColumn("ProduktID", disabled=True),
-            "Size": st.column_config.TextColumn("Storlek", disabled=True),
-            "Quantity ordered": st.column_config.NumberColumn(
-                "Beställd mängd", 
-                disabled=True,
-                help="Ursprungligt beställd mängd"
-            ),
-            "Mottagen mängd": st.column_config.NumberColumn(
-                "Mottagen mängd",
-                help="Ange faktiskt mottagen mängd",
-                min_value=0
-            ),
-            "Kvalitet OK": st.column_config.CheckboxColumn(
-                "✓ Kvalitet OK",
-                help="Markera när produktens kvalitet är kontrollerad och godkänd"
-            ),
-            "Kommentar": st.column_config.TextColumn(
-                "Kommentar",
-                help="Lägg till eventuell kommentar om avvikelser"
-            ),
-        }
+    active_orders = get_active_deliveries_summary()
+    completed_orders = get_completed_deliveries_summary()
+    return render_template(
+        "deliveries.html",
+        active_orders=active_orders,
+        completed_orders=completed_orders
     )
-    
-    # Uppdatera session state med ändringar
-    st.session_state.delivery_check = edited_df
-    
-    # Visa sammanfattning och avvikelser
-    st.markdown("### 📊 Sammanfattning")
-    total_ordered = edited_df['Quantity ordered'].sum()
-    total_received = edited_df['Mottagen mängd'].sum()
-    products_ok = edited_df['Kvalitet OK'].sum()
-    
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("Totalt beställt", total_ordered)
-    with col2:
-        st.metric("Totalt mottaget", total_received)
-    with col3:
-        st.metric("Produkter OK", f"{products_ok} av {len(edited_df)}")
-    
-    # Visa avvikelser om sådana finns
-    avvikelser = edited_df[
-        (edited_df['Quantity ordered'] != edited_df['Mottagen mängd']) |
-        (edited_df['Kommentar'].str.len() > 0)
-    ]
-    if not avvikelser.empty:
-        st.markdown("### ⚠️ Avvikelser")
-        for _, row in avvikelser.iterrows():
-            st.warning(
-                f"**{row['ProductID']} ({row['Size']})**: " +
-                f"Beställt: {row['Quantity ordered']}, Mottaget: {row['Mottagen mängd']}" +
-                (f"\nKommentar: {row['Kommentar']}" if row['Kommentar'] else "")
-            )
-    
-    # Knapp för att godkänna leveransen
-    st.markdown("---")
-    col1, col2 = st.columns(2)
-    with col2:
-        if st.button("✅ Godkänn leverans", 
-            type="primary",
-            use_container_width=True,
-            disabled=not all(edited_df['Kvalitet OK'])  # Kräv att alla produkter är OK
-        ):
-            handle_delivery_completion(edited_df)
-            st.success("✅ Leverans godkänd och arkiverad!")
-            st.session_state.delivery_view = "list"
-            st.session_state.selected_delivery = None
-            if "delivery_check" in st.session_state:
-                del st.session_state.delivery_check
-            st.rerun()
 
-def create_new_delivery(order_name, products_df):
-    """Skapar en ny leverans och lägger till i all_orders"""
+
+@app.route('/deliveries/create', methods=['GET', 'POST'])
+def deliveries_create():
+    """
+    Skapa ny leverans via CSV-upload.
+    """
+    if request.method == 'POST':
+        order_name = request.form.get("order_name", "").strip()
+        csv_file = request.files.get("csv_file", None)
+
+        if not order_name or not csv_file:
+            flash("Du måste ange både namn och CSV-fil!", "error")
+            return redirect(url_for("deliveries_create"))
+
+        try:
+            df = pd.read_csv(csv_file)
+            created = create_new_delivery(order_name, df)
+            if created:
+                flash(f"Leverans '{order_name}' importerad!", "success")
+                return redirect(url_for("deliveries"))
+            else:
+                flash("Fel vid skapande av leverans. Se log för detaljer.", "error")
+                return redirect(url_for("deliveries_create"))
+        except Exception as e:
+            flash(f"Fel vid uppladdning av CSV: {str(e)}", "error")
+            return redirect(url_for("deliveries_create"))
+
+    return render_template("deliveries_create.html")
+
+
+@app.route('/deliveries/cancel/<order_name>', methods=['GET', 'POST'])
+def deliveries_cancel(order_name):
+    """
+    Makulera en väntande leverans med visst order_name.
+    """
+    if request.method == 'POST':
+        cancel_delivery(order_name)
+        flash(f"Leverans '{order_name}' makulerad!", "success")
+        return redirect(url_for("deliveries"))
+    else:
+        # GET -> Bekräftelse
+        return render_template("deliveries_cancel.html", order_name=order_name)
+
+
+@app.route('/deliveries/process/<order_name>', methods=['GET', 'POST'])
+def deliveries_process(order_name):
+    """
+    Mottag en existerande leverans (stäm av mottagna kvantiteter, etc).
+    """
+    from data import logger, DATAFRAME_CACHE
+    logger.info(f"Försöker processa leverans: '{order_name}'")
+    
     try:
-        # Definiera obligatoriska kolumner
-        required_cols = [
-            "ProductID", 
-            "Product Number", 
-            "Product Name", 
-            "Supplier", 
-            "Inköpspris", 
-            "Quantity to Order",
-            "Size"
-        ]
+        # Verifiera leveransen först
+        is_valid, error_msg = verify_active_delivery(order_name)
         
-        # Validera att alla obligatoriska kolumner finns
-        missing_cols = [col for col in required_cols if col not in products_df.columns]
-        if missing_cols:
-            st.error(f"CSV-filen saknar följande obligatoriska kolumner: {', '.join(missing_cols)}")
-            return False
+        if not is_valid:
+            flash(f"Fel vid hämtning av leverans: {error_msg}", "error")
+            return redirect(url_for("deliveries"))
+        
+        if request.method == 'POST':
+            rowcount = int(request.form.get("rowcount", 0))
+            delivery_df = []
+            for i in range(rowcount):
+                product_id = request.form.get(f"product_id_{i}", "")
+                size = request.form.get(f"size_{i}", "")
+                quantity_ordered = request.form.get(f"quantity_ordered_{i}", "0")
+                quantity_received = request.form.get(f"quantity_received_{i}", "0")
+                purchase_price = request.form.get(f"purchase_price_{i}", "0")
+                comment = request.form.get(f"comment_{i}", "")
 
-        # Rensa och validera data
-        valid_products = products_df.copy()
-        valid_products['ProductID'] = valid_products['ProductID'].astype(str)
-        valid_products['Size'] = valid_products['Size'].astype(str)
-        valid_products['Quantity to Order'] = pd.to_numeric(valid_products['Quantity to Order'], errors='coerce').fillna(0)
-        
-        # Filtrera bort rader med quantity = 0
-        valid_products = valid_products[valid_products['Quantity to Order'] > 0].copy()
-        
-        if valid_products.empty:
-            st.error("Inga giltiga produkter hittades (Quantity to Order måste vara > 0)")
-            return False
+                # Konvertera strängarna till float först och sedan till int för kvantiteterna
+                try:
+                    qty_ordered = int(float(quantity_ordered))
+                    qty_received = int(float(quantity_received))
+                except ValueError as e:
+                    logger.error(f"Fel vid konvertering av kvantitet: {str(e)}")
+                    qty_ordered = 0
+                    qty_received = 0
 
-        # Behåll alla kolumner och lägg till de nödvändiga för systemet
-        valid_products['OrderDate'] = pd.Timestamp.now().strftime('%Y-%m-%d')
-        valid_products['OrderName'] = order_name
-        valid_products['Quantity ordered'] = valid_products['Quantity to Order']
-        valid_products['IsActive'] = True
-        
-        # Ta bort Quantity to Order eftersom vi nu har Quantity ordered
-        valid_products = valid_products.drop(columns=['Quantity to Order'])
+                delivery_df.append({
+                    "OrderName": order_name,
+                    "ProductID": product_id,
+                    "Size": size,
+                    "Quantity ordered": qty_ordered,
+                    "Mottagen mängd": qty_received,
+                    "PurchasePrice": float(purchase_price),
+                    "Kvalitet OK": True,  # Alltid satt till True nu
+                    "Kommentar": comment
+                })
+            delivery_df = pd.DataFrame(delivery_df)
 
-        # Lägg till i befintliga ordrar
-        st.session_state.all_orders = pd.concat(
-            [st.session_state.all_orders, valid_products], 
-            ignore_index=True
+            # Hämta API-credentials
+            api_endpoint = os.environ.get('YOUR_API_ENDPOINT')
+            api_token = os.environ.get('CENTRA_API_TOKEN')
+
+            # Godkänn leverans
+            handle_delivery_completion(delivery_df, api_endpoint, api_token)
+            flash("Leverans mottagen och arkiverad!", "success")
+            return redirect(url_for("deliveries"))
+        
+        # GET -> visa listan
+        # Kolla först om vi har cachad data med lagersaldo
+        cache_key = f"delivery_details_{order_name}"
+        cached_details = DATAFRAME_CACHE.get(cache_key)
+        
+        if cached_details:
+            logger.info(f"Använder cachad data för {order_name}: {cached_details}")
+            details = cached_details
+        else:
+            details_df = get_delivery_details(order_name)
+            if details_df is None or details_df.empty:
+                flash(f"Ingen aktiv leverans hittades för namnet: '{order_name}'.", "error")
+                return redirect(url_for("deliveries"))
+            details = details_df.to_dict(orient="records")
+        
+        return render_template(
+            "deliveries_process.html",
+            order_name=order_name,
+            details=details,
+            rowcount=len(details)
         )
-        save_orders_to_file()
-
-        return True
-
+        
     except Exception as e:
-        st.error(f"Ett fel uppstod: {str(e)}")
-        return False
+        logger.error(f"Oväntat fel vid processande av leverans '{order_name}': {str(e)}")
+        flash(f"Ett oväntat fel uppstod: {str(e)}", "error")
+        return redirect(url_for("deliveries"))
 
-def cancel_delivery(order_name):
-    """Makulerar en leverans"""
+
+@app.route('/deliveries/update_stock/<order_name>', methods=['POST'])
+def update_current_stock(order_name):
+    """
+    Uppdaterar lagersaldo för alla produkter i en leverans genom att hämta från Centra
+    """
+    from data import logger
+    logger.info(f"Uppdaterar lagersaldo för leverans: '{order_name}'")
+    
     try:
-        # Ta bort leveransen från all_orders
-        mask = st.session_state.all_orders['OrderName'] == order_name
-        st.session_state.all_orders = st.session_state.all_orders[~mask]
+        # Hämta API-credentials
+        api_endpoint = os.environ.get('YOUR_API_ENDPOINT')
+        api_token = os.environ.get('CENTRA_API_TOKEN')
         
-        # Spara ändringar
-        save_orders_to_file()
+        if not api_endpoint or not api_token:
+            flash("API-uppgifter saknas. Kontrollera miljövariabler.", "error")
+            return redirect(url_for('deliveries_process', order_name=order_name))
         
-        # Uppdatera merged_df om den finns
-        if 'merged_df' in st.session_state:
-            merged_df = st.session_state['merged_df'].copy()
-            merged_df = add_incoming_stock_columns(merged_df)
-            st.session_state['merged_df'] = merged_df
-        
-        # Rensa confirm_cancel
-        if 'confirm_cancel' in st.session_state:
-            del st.session_state.confirm_cancel
+        # Hämta leveransdetaljer
+        details_df = get_delivery_details(order_name)
+        if details_df is None or details_df.empty:
+            flash("Kunde inte hitta leveransen.", "error")
+            return redirect(url_for('deliveries'))
             
-        st.success(f"Leverans '{order_name}' makulerad")
+        # Uppdatera lagersaldo för varje produkt
+        updated_details = []
+        for _, row in details_df.iterrows():
+            # Hämta aktuellt lagersaldo från Centra
+            current_stock = get_current_stock_from_centra(
+                api_endpoint, 
+                api_token, 
+                row['ProductID'], 
+                row['Size']
+            )
+            logger.info(f"Hämtat lagersaldo för {row['ProductID']} {row['Size']}: {current_stock}")
+            
+            # Skapa en kopia av raden och uppdatera Current Stock
+            row_dict = row.to_dict()
+            row_dict['Current Stock'] = current_stock
+            updated_details.append(row_dict)
+        
+        # Spara uppdaterad data i session
+        from data import DATAFRAME_CACHE
+        cache_key = f"delivery_details_{order_name}"
+        DATAFRAME_CACHE[cache_key] = updated_details
+        logger.info(f"Uppdaterade detaljer sparade i cache: {updated_details}")
+        
+        flash(f"Lagersaldo uppdaterat från Centra! Totalt {len(updated_details)} produkter.", "success")
         
     except Exception as e:
-        st.error(f"Kunde inte makulera leveransen: {str(e)}")
+        logger.error(f"Fel vid uppdatering av lagersaldo: {str(e)}")
+        flash(f"Kunde inte uppdatera lagersaldo: {str(e)}", "error")
+    
+    return redirect(url_for('deliveries_process', order_name=order_name))
+
+
+@app.route('/test_stock/<product_id>/<size>')
+def test_stock(product_id, size):
+    api_endpoint = os.environ.get('YOUR_API_ENDPOINT')
+    api_token = os.environ.get('CENTRA_API_TOKEN')
+    
+    if not api_endpoint or not api_token:
+        return "API credentials saknas", 400
+        
+    stock = test_stock_query(api_endpoint, api_token, product_id, size)
+    return f"Stock för {product_id} storlek {size}: {stock}"
+
+
+@app.route('/deliveries/reactivate/<order_name>', methods=['POST'])
+def deliveries_reactivate(order_name):
+    """
+    Återaktiverar en avklarad leverans
+    """
+    from data import logger, ALL_ORDERS_DF
+    logger.info(f"Försöker återaktivera leverans: {order_name}")
+    
+    try:
+        # Hitta leveransen och sätt IsActive = True
+        mask = ALL_ORDERS_DF['OrderName'] == order_name
+        if not any(mask):
+            flash(f"Kunde inte hitta leverans: {order_name}", "error")
+            return redirect(url_for("deliveries"))
+            
+        ALL_ORDERS_DF.loc[mask, 'IsActive'] = True
+        from data import save_orders_to_file
+        save_orders_to_file()
+        
+        flash(f"Leverans {order_name} återaktiverad!", "success")
+        
+    except Exception as e:
+        logger.error(f"Fel vid återaktivering av leverans: {str(e)}")
+        flash(f"Kunde inte återaktivera leverans: {str(e)}", "error")
+        
+    return redirect(url_for("deliveries"))
+
+
+@app.route('/deliveries/view/<order_name>')
+def deliveries_view(order_name):
+    """
+    Visa detaljer för en avklarad leverans
+    """
+    from data import logger, ALL_ORDERS_DF
+    
+    try:
+        # Hämta leveransdetaljer
+        details_df = ALL_ORDERS_DF[ALL_ORDERS_DF['OrderName'] == order_name].copy()
+        if details_df.empty:
+            flash("Kunde inte hitta leveransen.", "error")
+            return redirect(url_for("deliveries"))
+            
+        # Logga kolumnnamn och första raden för debugging
+        logger.info(f"Kolumner i details_df: {details_df.columns.tolist()}")
+        if not details_df.empty:
+            logger.info(f"Första raden: {details_df.iloc[0].to_dict()}")
+        
+        # Standardisera kolumnnamnen
+        if 'Quantity received' in details_df.columns:
+            details_df['Mottagen mängd'] = details_df['Quantity received']
+        if 'Comment' in details_df.columns:
+            details_df['Kommentar'] = details_df['Comment']
+            
+        details = details_df.to_dict(orient="records")
+        return render_template(
+            "deliveries_view.html",
+            order_name=order_name,
+            details=details
+        )
+        
+    except Exception as e:
+        logger.error(f"Fel vid visning av leverans: {str(e)}")
+        flash(f"Kunde inte visa leveransdetaljer: {str(e)}", "error")
+        return redirect(url_for("deliveries"))
+
 
 if __name__ == "__main__":
-    main()
+    # Anropa vår init-funktion före app.run()
+    initialize_app()
+    # Starta Flask-server
+    app.run(host='0.0.0.0', port=5000, debug=True)

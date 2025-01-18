@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Leveransdetaljer: {{ order_name }}</h2>
+
+<table class="table">
+  <thead>
+    <tr>
+      <th>ProductID</th>
+      <th>Storlek</th>
+      <th>Beställd</th>
+      <th>Mottagen</th>
+      <th>PurchasePrice</th>
+      <th>Kommentar</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for row in details %}
+    <tr>
+      <td>{{ row.ProductID }}</td>
+      <td>{{ row.Size }}</td>
+      <td>{{ row['Quantity ordered'] }}</td>
+      <td>{{ row['Mottagen mängd'] }}</td>
+      <td>{{ row.PurchasePrice }}</td>
+      <td>{{ row.Kommentar }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+<a href="{{ url_for('deliveries') }}" class="btn btn-secondary">Tillbaka</a>
+{% endblock %} 

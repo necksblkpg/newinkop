@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Välkommen till Inköpssystem (Flask)</h1>
+<p>
+  Denna sida ersätter Streamlit-appen med en Flask-webbapp.
+</p>
+<a href="{{ url_for('stats') }}" class="btn btn-primary">Gå till Statistik & Översikt</a>
+<a href="{{ url_for('deliveries') }}" class="btn btn-success">Gå till Leveranser</a>
+{% endblock %}

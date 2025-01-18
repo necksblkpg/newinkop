@@ -51,7 +51,7 @@ def push_to_google_sheets(df, sheet_name):
             "Status",
             "Is Bundle",
             "Supplier",
-            "Inköpspris",
+            "PurchasePrice",
             "Quantity Sold",
             "Stock Balance",
             "Incoming Qty",

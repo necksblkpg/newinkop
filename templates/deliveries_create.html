@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Skapa ny leverans</h2>
+<p>Ladda upp en CSV-fil med kolumnerna: <code>ProductID, Product Number, Product Name, Supplier, PurchasePrice, Quantity to Order, Size</code></p>
+
+<form method="POST" action="{{ url_for('deliveries_create') }}" enctype="multipart/form-data">
+  <div class="mb-3">
+    <label for="order_name" class="form-label">Namn på leveransen</label>
+    <input type="text" class="form-control" id="order_name" name="order_name" required>
+  </div>
+  <div class="mb-3">
+    <label for="csv_file" class="form-label">Välj CSV-fil</label>
+    <input type="file" class="form-control" id="csv_file" name="csv_file" accept=".csv" required>
+  </div>
+  <button type="submit" class="btn btn-primary">Importera</button>
+</form>
+{% endblock %}

@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Makulera leverans</h2>
+<p>Är du säker att du vill makulera leveransen <strong>{{ order_name }}</strong>?</p>
+
+<form method="POST">
+  <button type="submit" class="btn btn-danger">Ja, makulera</button>
+  <a href="{{ url_for('deliveries') }}" class="btn btn-secondary">Nej, avbryt</a>
+</form>
+{% endblock %}

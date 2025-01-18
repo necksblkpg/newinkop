@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Statistik & Översikt</h2>
+
+<form method="POST" action="{{ url_for('stats') }}" class="row g-3">
+  <div class="col-md-3">
+    <label for="from_date" class="form-label">Från Datum</label>
+    <input type="date" class="form-control" id="from_date" name="from_date" value="{{ from_date }}">
+  </div>
+  <div class="col-md-3">
+    <label for="to_date" class="form-label">Till Datum</label>
+    <input type="date" class="form-control" id="to_date" name="to_date" value="{{ to_date }}">
+  </div>
+  <div class="col-md-2">
+    <label for="lead_time" class="form-label">Leveranstid (dagar)</label>
+    <input type="number" class="form-control" id="lead_time" name="lead_time" value="{{ lead_time }}">
+  </div>
+  <div class="col-md-2">
+    <label for="safety_stock" class="form-label">Säkerhetslager</label>
+    <input type="number" class="form-control" id="safety_stock" name="safety_stock" value="{{ safety_stock }}">
+  </div>
+  <div class="col-12">
+    <input type="checkbox" id="active_filter" name="active_filter" {% if active_filter %}checked{% endif %}>
+    <label for="active_filter">Endast aktiva produkter</label>
+
+    <input type="checkbox" id="bundle_filter" name="bundle_filter" {% if bundle_filter %}checked{% endif %}>
+    <label for="bundle_filter">Exkludera bundles</label>
+
+    <input type="checkbox" id="exclude_supplier" name="exclude_supplier" {% if exclude_supplier %}checked{% endif %}>
+    <label for="exclude_supplier">Exkludera 'Utgående produkt'</label>
+
+    <input type="checkbox" id="shipped_filter" name="shipped_filter" {% if shipped_filter %}checked{% endif %}>
+    <label for="shipped_filter">Endast SHIPPED ordrar</label>
+  </div>
+  <div class="col-12">
+    <button type="submit" class="btn btn-primary">Hämta data</button>
+  </div>
+</form>
+
+<hr>
+
+{% if df_table %}
+<h3>Resultat:</h3>
+<div class="table-responsive">
+  {{ df_table|safe }}
+</div>
+
+<form method="POST" action="{{ url_for('stats_push_to_sheets') }}">
+  <button type="submit" class="btn btn-outline-success">Push till Google Sheets</button>
+</form>
+{% endif %}
+
+{% endblock %}
