@@ -1,63 +1,437 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>Ta emot leverans: {{ order_name }}</h2>
+<style>
+  .input-group-text { 
+    background-color: #f8f9fa;
+    min-width: 120px;
+    justify-content: center;
+  }
+  
+  .form-control:read-only {
+    background-color: #f8f9fa;
+  }
+  
+  .table td {
+    vertical-align: middle;
+  }
+  
+  .card {
+    box-shadow: 0 2px 4px rgba(0,0,0,.1);
+  }
+  
+  .sticky-header {
+    position: sticky;
+    top: 0;
+    background: white;
+    z-index: 100;
+    box-shadow: 0 2px 4px rgba(0,0,0,.1);
+  }
+  
+  .loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.9);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+  }
+  
+  .loading-content {
+    text-align: center;
+    background: white;
+    padding: 2rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,.1);
+  }
+  
+  .loading-spinner {
+    width: 50px;
+    height: 50px;
+    border: 5px solid #f3f3f3;
+    border-top: 5px solid #3498db;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+  
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+  
+  .table-container {
+    margin-top: 1rem;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,.1);
+    overflow-x: auto;
+    width: 100%;
+  }
+  
+  .table {
+    margin-bottom: 0;
+    white-space: nowrap;
+  }
+  
+  .table th {
+    background: #f8f9fa;
+    padding: 12px 8px;
+    font-size: 0.9rem;
+  }
+  
+  .table td {
+    padding: 8px;
+  }
+  
+  .form-control-sm, .form-select-sm {
+    min-width: 80px;
+  }
+  
+  /* Specifika kolumnbredder */
+  .col-id { width: 80px; }
+  .col-size { width: 70px; }
+  .col-stock { width: 70px; }
+  .col-qty { width: 80px; }
+  .col-price { width: 100px; }
+  .col-currency { width: 90px; }
+  .col-rate { width: 100px; }
+  .col-percent { width: 80px; }
+  .col-sek { width: 110px; }
+  
+  .form-actions {
+    position: sticky;
+    bottom: 0;
+    background: white;
+    padding: 1rem;
+    box-shadow: 0 -2px 4px rgba(0,0,0,.1);
+    margin-top: 2rem;
+    text-align: right;
+  }
+</style>
 
-<!-- Lägg till uppdateringsknapp -->
-<form action="{{ url_for('update_current_stock', order_name=order_name) }}" method="POST" class="mb-3">
-  <button type="submit" class="btn btn-outline-primary">
-    <i class="fas fa-sync"></i> Uppdatera lagersaldo från Centra
-  </button>
-</form>
+<div class="px-2 py-4">
+  <!-- Header -->
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Ta emot leverans: {{ order_name }}</h2>
+    <div>
+      <a href="{{ url_for('deliveries') }}" class="btn btn-outline-secondary">
+        <i class="fas fa-arrow-left"></i> Tillbaka
+      </a>
+    </div>
+  </div>
 
-<form method="POST">
-  <input type="hidden" name="rowcount" value="{{ rowcount }}">
-  <table class="table">
-    <thead>
-      <tr>
-        <th>ProductID</th>
-        <th>Storlek</th>
-        <th>Nuvarande lager</th>
-        <th>Beställd</th>
-        <th>Mottagen</th>
-        <th>PurchasePrice</th>
-        <th>Kommentar</th>
-      </tr>
-    </thead>
-    <tbody>
-    {% for row in details %}
-      <tr>
-        <td>
-          <input type="text" class="form-control-plaintext" readonly
-            name="product_id_{{ loop.index0 }}" value="{{ row.ProductID }}">
-        </td>
-        <td>
-          <input type="text" class="form-control-plaintext" readonly
-            name="size_{{ loop.index0 }}" value="{{ row.Size }}">
-        </td>
-        <td>
-          <input type="number" class="form-control-plaintext" readonly
-            name="current_stock_{{ loop.index0 }}" value="{{ row.get('Current Stock', 0) }}">
-        </td>
-        <td>
-          <input type="number" class="form-control-plaintext" readonly
-            name="quantity_ordered_{{ loop.index0 }}" value="{{ row['Quantity ordered'] }}">
-        </td>
-        <td>
-          <input type="number" class="form-control" 
-            name="quantity_received_{{ loop.index0 }}" value="{{ row['Quantity ordered'] }}" min="0">
-        </td>
-        <td>
-          <input type="number" class="form-control-plaintext" readonly
-            name="purchase_price_{{ loop.index0 }}" value="{{ row['PurchasePrice'] }}" step="0.01">
-        </td>
-        <td>
-          <input type="text" class="form-control" name="comment_{{ loop.index0 }}" placeholder="Kommentar">
-        </td>
-      </tr>
-    {% endfor %}
-    </tbody>
-  </table>
-  <button type="submit" class="btn btn-success">Godkänn leverans</button>
-  <a href="{{ url_for('deliveries') }}" class="btn btn-secondary">Avbryt</a>
-</form>
+  <form method="POST" id="deliveryForm">
+    <input type="hidden" name="rowcount" value="{{ rowcount }}">
+    
+    <!-- Gemensamma värden -->
+    <div class="card mb-4 mx-0">
+      <div class="card-header bg-light">
+        <h5 class="card-title mb-0">Gemensamma värden</h5>
+        <small class="text-muted d-block mt-1">
+          Alla fält måste fyllas i för att se beräknat pris och snittkostnad.
+          Fält markerade i rött saknar värden.
+        </small>
+      </div>
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-md-3">
+            <div class="input-group">
+              <span class="input-group-text">Valuta</span>
+              <select id="copyCurrency" class="form-select">
+                <option value="">Välj valuta</option>
+                <option value="USD">USD</option>
+                <option value="EUR">EUR</option>
+                <option value="GBP">GBP</option>
+                <option value="SEK">SEK</option>
+              </select>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="input-group">
+              <span class="input-group-text">Växelkurs</span>
+              <input type="number" id="copyExchangeRate" class="form-control" step="0.0001">
+            </div>
+          </div>
+          <div class="col-md-2">
+            <div class="input-group">
+              <span class="input-group-text">Frakt %</span>
+              <input type="number" id="copyShipping" class="form-control" step="0.01">
+            </div>
+          </div>
+          <div class="col-md-2">
+            <div class="input-group">
+              <span class="input-group-text">Tull %</span>
+              <input type="number" id="copyCustoms" class="form-control" step="0.01">
+            </div>
+          </div>
+          <div class="col-md-2">
+            <button type="button" class="btn btn-primary w-100" onclick="copyToAll()">
+              <i class="fas fa-copy"></i> Kopiera till alla
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Produkttabell -->
+    <div class="table-container">
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead class="sticky-header">
+            <tr>
+              <th class="col-id">ProductID</th>
+              <th class="col-id">Artikelnr</th>
+              <th class="col-size">Storlek</th>
+              <th class="col-stock">Lager</th>
+              <th class="col-qty">Beställd</th>
+              <th class="col-qty">Mottagen</th>
+              <th class="col-price">Inköpspris</th>
+              <th class="col-price">Pris</th>
+              <th class="col-currency">Valuta</th>
+              <th class="col-rate">Växelkurs</th>
+              <th class="col-percent">Frakt %</th>
+              <th class="col-percent">Tull %</th>
+              <th class="col-sek">Nytt pris SEK</th>
+              <th class="col-sek">Nytt snitt SEK</th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for row in details %}
+            <tr>
+              <td>{{ row.ProductID }}</td>
+              <td>{{ row.get('Product Number', '') }}</td>
+              <td>{{ row.Size }}</td>
+              <td>{{ row.get('Current Stock', 0) }}</td>
+              <input type="hidden" name="current_stock_{{ loop.index0 }}" value="{{ row.get('Current Stock', 0) }}">
+              <input type="hidden" name="purchase_price_{{ loop.index0 }}" value="{{ row['PurchasePrice'] }}">
+              <td>{{ row['Quantity ordered'] }}</td>
+              <td>
+                <input type="number" class="form-control form-control-sm" 
+                  name="quantity_received_{{ loop.index0 }}" 
+                  value="{{ row['Quantity ordered'] }}" min="0" required>
+              </td>
+              <td>{{ row['PurchasePrice'] }}</td>
+              <td>
+                <input type="number" class="form-control form-control-sm price-input" 
+                  name="price_{{ loop.index0 }}" step="0.01" required>
+              </td>
+              <td>
+                <select class="form-select form-select-sm currency-input" 
+                  name="currency_{{ loop.index0 }}" required>
+                  <option value="">Välj</option>
+                  <option value="USD">USD</option>
+                  <option value="EUR">EUR</option>
+                  <option value="GBP">GBP</option>
+                  <option value="SEK">SEK</option>
+                </select>
+              </td>
+              <td>
+                <input type="number" class="form-control form-control-sm exchange-rate-input" 
+                  name="exchange_rate_{{ loop.index0 }}" step="0.0001" required>
+              </td>
+              <td>
+                <input type="number" class="form-control form-control-sm shipping-input" 
+                  name="shipping_{{ loop.index0 }}" step="0.01" required>
+              </td>
+              <td>
+                <input type="number" class="form-control form-control-sm customs-input" 
+                  name="customs_{{ loop.index0 }}" step="0.01" required>
+              </td>
+              <td>
+                <input type="number" class="form-control form-control-sm new-price-sek" 
+                  name="new_price_sek_{{ loop.index0 }}" readonly>
+              </td>
+              <td>
+                <input type="number" class="form-control form-control-sm new-avg-cost" 
+                  name="new_avg_cost_{{ loop.index0 }}" readonly>
+              </td>
+              <!-- Lägg till dolda input-fält för att skicka med värdena -->
+              <input type="hidden" name="product_id_{{ loop.index0 }}" value="{{ row.ProductID }}">
+              <input type="hidden" name="size_{{ loop.index0 }}" value="{{ row.Size }}">
+              <input type="hidden" name="quantity_ordered_{{ loop.index0 }}" value="{{ row['Quantity ordered'] }}">
+              <input type="hidden" name="purchase_price_{{ loop.index0 }}" value="{{ row['PurchasePrice'] }}">
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Knappar -->
+    <div class="form-actions">
+      <button type="submit" class="btn btn-success">
+        <i class="fas fa-check"></i> Godkänn leverans
+      </button>
+      <a href="{{ url_for('deliveries') }}" class="btn btn-outline-secondary">
+        <i class="fas fa-times"></i> Avbryt
+      </a>
+    </div>
+  </form>
+</div>
+
+<!-- Behåll ditt befintliga JavaScript oförändrat -->
+<script>
+function copyToAll() {
+  // Hämta värden från kopiera-fälten (utan price)
+  const currency = document.getElementById('copyCurrency').value;
+  const exchangeRate = document.getElementById('copyExchangeRate').value;
+  const shipping = document.getElementById('copyShipping').value;
+  const customs = document.getElementById('copyCustoms').value;
+
+  // Kopiera till alla rader (utan price)
+  document.querySelectorAll('.currency-input').forEach(input => {
+    input.value = currency;
+  });
+  document.querySelectorAll('.exchange-rate-input').forEach(input => {
+    input.value = exchangeRate;
+  });
+  document.querySelectorAll('.shipping-input').forEach(input => {
+    input.value = shipping;
+  });
+  document.querySelectorAll('.customs-input').forEach(input => {
+    input.value = customs;
+  });
+
+  // Trigga prisberäkning efter kopiering
+  calculateNewPrices();
+}
+
+function calculateNewPrices() {
+  const rows = document.querySelectorAll('tbody tr');
+  
+  rows.forEach((row, index) => {
+    // Hämta alla input-fält för raden
+    const priceInput = row.querySelector(`input[name="price_${index}"]`);
+    const currencySelect = row.querySelector(`select[name="currency_${index}"]`);
+    const exchangeRateInput = row.querySelector(`input[name="exchange_rate_${index}"]`);
+    const shippingInput = row.querySelector(`input[name="shipping_${index}"]`);
+    const customsInput = row.querySelector(`input[name="customs_${index}"]`);
+    
+    // Hämta resultatfälten
+    const newPriceSEKInput = row.querySelector(`input[name="new_price_sek_${index}"]`);
+    const newAvgCostInput = row.querySelector(`input[name="new_avg_cost_${index}"]`);
+    
+    // Kontrollera om alla obligatoriska fält är ifyllda (tillåt 0)
+    const requiredFields = [
+      { field: priceInput, value: priceInput.value },
+      { field: currencySelect, value: currencySelect.value },
+      { field: exchangeRateInput, value: exchangeRateInput.value },
+      { field: shippingInput, value: shippingInput.value },
+      { field: customsInput, value: customsInput.value }
+    ];
+    
+    // Ändra validering för att tillåta 0 men inte tomma värden
+    const allFieldsFilled = requiredFields.every(item => {
+      if (item.field === currencySelect) {
+        return item.value !== ''; // Valuta måste ha ett värde
+      }
+      return item.value !== ''; // Övriga fält får vara 0 men inte tomma
+    });
+    
+    // Markera fält visuellt och uppdatera beräkningar
+    requiredFields.forEach(item => {
+      if (item.value === '') {
+        item.field.classList.add('is-invalid');
+        item.field.title = 'Detta fält måste fyllas i (0 är tillåtet)';
+      } else {
+        item.field.classList.remove('is-invalid');
+        item.field.title = '';
+      }
+    });
+    
+    // Uppdatera informationstexten
+    document.querySelector('.card-header small').textContent = 
+      'Alla fält måste fyllas i (0 är tillåtet). Fält markerade i rött saknar värden.';
+    
+    if (allFieldsFilled) {
+      // Hämta värden för beräkning
+      const price = parseFloat(priceInput.value) || 0;
+      const exchangeRate = parseFloat(exchangeRateInput.value) || 0;
+      const shippingPercent = parseFloat(shippingInput.value) || 0;
+      const customsPercent = parseFloat(customsInput.value) || 0;
+      
+      // Hämta dolda värden
+      const currentStock = parseFloat(row.querySelector(`input[name="current_stock_${index}"]`).value) || 0;
+      const currentPrice = parseFloat(row.querySelector(`input[name="purchase_price_${index}"]`).value) || 0;
+      const receivedQty = parseFloat(row.querySelector(`input[name="quantity_received_${index}"]`).value) || 0;
+      
+      // Beräkna New price SEK
+      let newPriceSEK = price * exchangeRate;
+      if (shippingPercent > 0) {
+        newPriceSEK += (newPriceSEK * (shippingPercent / 100));
+      }
+      if (customsPercent > 0) {
+        newPriceSEK += (newPriceSEK * (customsPercent / 100));
+      }
+      
+      // Beräkna New avg. cost/pcs SEK
+      let newAvgCost = 0;
+      if (currentStock + receivedQty > 0) {
+        const totalCurrentValue = currentStock * currentPrice;
+        const totalNewValue = receivedQty * newPriceSEK;
+        newAvgCost = (totalCurrentValue + totalNewValue) / (currentStock + receivedQty);
+      } else {
+        newAvgCost = newPriceSEK;
+      }
+      
+      // Uppdatera resultatfälten
+      newPriceSEKInput.value = newPriceSEK.toFixed(2);
+      newAvgCostInput.value = newAvgCost.toFixed(2);
+      
+      // Ta bort eventuell felmarkering från resultatfälten
+      newPriceSEKInput.classList.remove('is-invalid');
+      newAvgCostInput.classList.remove('is-invalid');
+    } else {
+      // Rensa och markera resultatfälten om något obligatoriskt fält saknas
+      newPriceSEKInput.value = '';
+      newAvgCostInput.value = '';
+      newPriceSEKInput.classList.add('is-invalid');
+      newAvgCostInput.classList.add('is-invalid');
+    }
+  });
+}
+
+// Lägg till event listeners för alla fält som påverkar beräkningen
+document.querySelectorAll('input[name^="price_"], input[name^="exchange_rate_"], input[name^="shipping_"], input[name^="customs_"], input[name^="quantity_received_"]').forEach(input => {
+  input.addEventListener('input', calculateNewPrices);
+});
+
+// Kör automatisk uppdatering endast om det behövs
+{% if needs_stock_update %}
+  // Visa laddningsindikator
+  document.getElementById('loadingOverlay').style.display = 'flex';
+  
+  fetch("{{ url_for('update_current_stock', order_name=order_name) }}", {
+    method: 'POST',
+    headers: {
+      'X-Requested-With': 'XMLHttpRequest'
+    }
+  })
+  .then(response => {
+    if (!response.ok) {
+      return response.json().then(data => {
+        throw new Error(data.error || 'Nätverksfel vid uppdatering av lager');
+      });
+    }
+    return response.json();
+  })
+  .then(data => {
+    // Dölj laddningsindikator och ladda om sidan en gång
+    document.getElementById('loadingOverlay').style.display = 'none';
+    window.location.reload();
+  })
+  .catch(error => {
+    // Dölj laddningsindikator och visa felmeddelande
+    document.getElementById('loadingOverlay').style.display = 'none';
+    console.error('Fel vid uppdatering:', error);
+    alert('Kunde inte uppdatera lagersaldo: ' + error.message);
+  });
+{% else %}
+  // Dölj laddningsindikator om ingen uppdatering behövs
+  document.getElementById('loadingOverlay').style.display = 'none';
+{% endif %}
+</script>
 {% endblock %}

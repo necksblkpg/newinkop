@@ -2,30 +2,65 @@
 {% block content %}
 <h2>Leveransdetaljer: {{ order_name }}</h2>
 
-<table class="table">
-  <thead>
-    <tr>
-      <th>ProductID</th>
-      <th>Storlek</th>
-      <th>Beställd</th>
-      <th>Mottagen</th>
-      <th>PurchasePrice</th>
-      <th>Kommentar</th>
-    </tr>
-  </thead>
-  <tbody>
-  {% for row in details %}
-    <tr>
-      <td>{{ row.ProductID }}</td>
-      <td>{{ row.Size }}</td>
-      <td>{{ row['Quantity ordered'] }}</td>
-      <td>{{ row['Mottagen mängd'] }}</td>
-      <td>{{ row.PurchasePrice }}</td>
-      <td>{{ row.Kommentar }}</td>
-    </tr>
-  {% endfor %}
-  </tbody>
-</table>
+<div class="table-responsive">
+  <table class="table table-striped">
+    <thead>
+      <tr>
+        <th>ProductID</th>
+        <th>Storlek</th>
+        <th>Beställd kvantitet</th>
+        {% if not is_active %}
+          <th>Mottagen mängd</th>
+          <th>Nytt snitt SEK</th>
+        {% endif %}
+        <th>PurchasePrice</th>
+        {% if details[0].get('Product Name') %}
+          <th>Produktnamn</th>
+        {% endif %}
+        {% if details[0].get('Product Number') %}
+          <th>Artikelnummer</th>
+        {% endif %}
+        {% if details[0].get('Supplier') %}
+          <th>Leverantör</th>
+        {% endif %}
+      </tr>
+    </thead>
+    <tbody>
+    {% for row in details %}
+      <tr>
+        <td>{{ row.ProductID }}</td>
+        <td>{{ row.Size }}</td>
+        <td>{{ row['Quantity ordered'] }}</td>
+        {% if not is_active %}
+          <td>{{ row.get('Mottagen mängd', 0) }}</td>
+          <td>{{ "%.2f"|format(row.get('new_avg_cost', 0)) }}</td>
+        {% endif %}
+        <td>{{ row.PurchasePrice }}</td>
+        {% if row.get('Product Name') %}
+          <td>{{ row['Product Name'] }}</td>
+        {% endif %}
+        {% if row.get('Product Number') %}
+          <td>{{ row['Product Number'] }}</td>
+        {% endif %}
+        {% if row.get('Supplier') %}
+          <td>{{ row.Supplier }}</td>
+        {% endif %}
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
 
-<a href="{{ url_for('deliveries') }}" class="btn btn-secondary">Tillbaka</a>
+<div class="mt-3">
+  <a href="{{ url_for('deliveries') }}" class="btn btn-secondary">Tillbaka</a>
+  {% if is_active %}
+    <a href="{{ url_for('deliveries_process', order_name=order_name) }}" 
+       class="btn btn-success">Ta emot leverans</a>
+  {% else %}
+    <a href="{{ url_for('export_delivery_details', order_name=order_name) }}" 
+       class="btn btn-primary">
+       <i class="fas fa-file-download"></i> Exportera till CSV
+    </a>
+  {% endif %}
+</div>
 {% endblock %} 

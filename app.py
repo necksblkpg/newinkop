@@ -4,11 +4,13 @@
 # @app.before_first_request är borttaget (Flask 3.x)
 # I stället kallas initialize_app() direkt i if __name__ == "__main__":-blocket.
 
-from flask import Flask, request, render_template, redirect, url_for, flash
+from flask import Flask, request, render_template, redirect, url_for, flash, jsonify, session, send_file
 import os
 import logging
 import pandas as pd
 from datetime import datetime, timedelta
+import io
+import csv
 
 # Importera hjälpfunktioner från våra andra filer
 from data import (
@@ -87,6 +89,9 @@ def stats():
             flash("API-endpoint och/eller token saknas. Sätt miljövariabler!", "error")
             return redirect(url_for("stats"))
 
+        # Hämta aktiva ordrar
+        active_orders = get_active_deliveries_summary()
+
         # Hämta & processa data
         df = fetch_all_products_with_sales(
             api_endpoint=api_endpoint,
@@ -118,14 +123,19 @@ def stats():
         if 'Product Number' in df.columns:
             df['Product Number'] = "'" + df['Product Number'].astype(str)
 
-        # Spara i global cache (DATAFRAME_CACHE) i data.py
+        # Spara hela dataframen i cache
         from data import DATAFRAME_CACHE
         DATAFRAME_CACHE["stats_df"] = df.copy()
 
-        # Skicka med tabell till template
+        # Skapa en förhandsvisning med bara 3 rader
+        preview_df = df.head(3)
+
         return render_template(
             "stats.html",
-            df_table=df.to_html(classes="table table-striped", index=False),
+            df_table=df.to_html(classes="table table-striped", index=False),  # Full data för referens
+            preview_table=preview_df.to_html(classes="table table-striped", index=False),  # Förhandsvisning
+            total_rows=len(df),  # Totalt antal rader
+            active_orders=active_orders,
             from_date=from_date_str,
             to_date=to_date_str,
             active_filter=active_filter,
@@ -137,9 +147,13 @@ def stats():
         )
     else:
         # GET - visa tomt formulär
+        # Hämta aktiva ordrar även för GET request
+        active_orders = get_active_deliveries_summary()
+        
         return render_template(
             "stats.html",
             df_table=None,
+            active_orders=active_orders,
             from_date=default_from_date,
             to_date=default_to_date,
             active_filter=True,
@@ -154,24 +168,20 @@ def stats():
 @app.route('/stats/push_to_sheets', methods=['POST'])
 def stats_push_to_sheets():
     """
-    Knapp som pushar nuvarande df till Google Sheets.
-    Kräver att vi har en df i DATAFRAME_CACHE["stats_df"].
+    Pushar nuvarande df till Google Sheets och returnerar URL:en.
     """
     from data import DATAFRAME_CACHE
     df = DATAFRAME_CACHE.get("stats_df")
     if df is None or df.empty:
-        flash("Ingen data att pusha. Hämta data först!", "warning")
-        return redirect(url_for("stats"))
+        return jsonify({'error': 'Ingen data att exportera'}), 400
 
     # Försök pusha
     sheet_name = f"Produkt_Försäljning_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
     sheet_url = push_to_google_sheets(df, sheet_name)
     if sheet_url:
-        flash(f"Data pushad till Google Sheets! Länk: {sheet_url}", "success")
+        return jsonify({'sheet_url': sheet_url})
     else:
-        flash("Något gick fel vid push till Google Sheets.", "error")
-
-    return redirect(url_for("stats"))
+        return jsonify({'error': 'Kunde inte skapa Google Sheet'}), 500
 
 
 # --------------------------------------------
@@ -241,7 +251,6 @@ def deliveries_process(order_name):
     Mottag en existerande leverans (stäm av mottagna kvantiteter, etc).
     """
     from data import logger, DATAFRAME_CACHE
-    logger.info(f"Försöker processa leverans: '{order_name}'")
     
     try:
         # Verifiera leveransen först
@@ -250,7 +259,16 @@ def deliveries_process(order_name):
         if not is_valid:
             flash(f"Fel vid hämtning av leverans: {error_msg}", "error")
             return redirect(url_for("deliveries"))
+
+        # Hämta API-credentials
+        api_endpoint = os.environ.get('YOUR_API_ENDPOINT')
+        api_token = os.environ.get('CENTRA_API_TOKEN')
         
+        if not api_endpoint or not api_token:
+            flash("API-uppgifter saknas. Kontrollera miljövariabler.", "error")
+            return redirect(url_for('deliveries'))
+
+        # Hantera POST-request (godkänn leverans)
         if request.method == 'POST':
             rowcount = int(request.form.get("rowcount", 0))
             delivery_df = []
@@ -260,9 +278,14 @@ def deliveries_process(order_name):
                 quantity_ordered = request.form.get(f"quantity_ordered_{i}", "0")
                 quantity_received = request.form.get(f"quantity_received_{i}", "0")
                 purchase_price = request.form.get(f"purchase_price_{i}", "0")
-                comment = request.form.get(f"comment_{i}", "")
+                
+                # Nya fält
+                price = request.form.get(f"price_{i}", "0")
+                currency = request.form.get(f"currency_{i}", "")
+                exchange_rate = request.form.get(f"exchange_rate_{i}", "0")
+                shipping = request.form.get(f"shipping_{i}", "0")
+                customs = request.form.get(f"customs_{i}", "0")
 
-                # Konvertera strängarna till float först och sedan till int för kvantiteterna
                 try:
                     qty_ordered = int(float(quantity_ordered))
                     qty_received = int(float(quantity_received))
@@ -278,40 +301,58 @@ def deliveries_process(order_name):
                     "Quantity ordered": qty_ordered,
                     "Mottagen mängd": qty_received,
                     "PurchasePrice": float(purchase_price),
-                    "Kvalitet OK": True,  # Alltid satt till True nu
-                    "Kommentar": comment
+                    "Price": float(price),
+                    "Currency": currency,
+                    "Exchange rate": float(exchange_rate),
+                    "Shipping": float(shipping),
+                    "Customs": float(customs),
+                    "new_price_sek": float(request.form.get(f"new_price_sek_{i}") or 0),
+                    "new_avg_cost": float(request.form.get(f"new_avg_cost_{i}") or 0)
                 })
             delivery_df = pd.DataFrame(delivery_df)
-
-            # Hämta API-credentials
-            api_endpoint = os.environ.get('YOUR_API_ENDPOINT')
-            api_token = os.environ.get('CENTRA_API_TOKEN')
 
             # Godkänn leverans
             handle_delivery_completion(delivery_df, api_endpoint, api_token)
             flash("Leverans mottagen och arkiverad!", "success")
             return redirect(url_for("deliveries"))
+            
+        # GET-request - visa formulär
+        details_df = get_delivery_details(order_name)
+        if details_df is None or details_df.empty:
+            flash(f"Ingen aktiv leverans hittades för namnet: '{order_name}'.", "error")
+            return redirect(url_for("deliveries"))
+            
+        # Hämta produktinformation från Centra om det behövs
+        if 'Product Number' not in details_df.columns:
+            # Lägg till Product Number från Centra API eller annan datakälla
+            # Detta beror på hur din data är strukturerad
+            pass
         
-        # GET -> visa listan
-        # Kolla först om vi har cachad data med lagersaldo
+        # Uppdatera lagersaldo för varje produkt
+        updated_details = []
+        for _, row in details_df.iterrows():
+            current_stock = get_current_stock_from_centra(
+                api_endpoint, 
+                api_token, 
+                row['ProductID'], 
+                row['Size']
+            )
+            logger.info(f"Hämtat lagersaldo för {row['ProductID']} {row['Size']}: {current_stock}")
+            
+            row_dict = row.to_dict()
+            row_dict['Current Stock'] = current_stock
+            updated_details.append(row_dict)
+        
+        # Spara uppdaterad data i cache
         cache_key = f"delivery_details_{order_name}"
-        cached_details = DATAFRAME_CACHE.get(cache_key)
-        
-        if cached_details:
-            logger.info(f"Använder cachad data för {order_name}: {cached_details}")
-            details = cached_details
-        else:
-            details_df = get_delivery_details(order_name)
-            if details_df is None or details_df.empty:
-                flash(f"Ingen aktiv leverans hittades för namnet: '{order_name}'.", "error")
-                return redirect(url_for("deliveries"))
-            details = details_df.to_dict(orient="records")
+        DATAFRAME_CACHE[cache_key] = updated_details
         
         return render_template(
             "deliveries_process.html",
             order_name=order_name,
-            details=details,
-            rowcount=len(details)
+            details=updated_details,
+            rowcount=len(updated_details),
+            needs_stock_update=False
         )
         
     except Exception as e:
@@ -334,12 +375,16 @@ def update_current_stock(order_name):
         api_token = os.environ.get('CENTRA_API_TOKEN')
         
         if not api_endpoint or not api_token:
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return jsonify({'error': 'API-uppgifter saknas'}), 400
             flash("API-uppgifter saknas. Kontrollera miljövariabler.", "error")
             return redirect(url_for('deliveries_process', order_name=order_name))
         
         # Hämta leveransdetaljer
         details_df = get_delivery_details(order_name)
         if details_df is None or details_df.empty:
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return jsonify({'error': 'Kunde inte hitta leveransen'}), 404
             flash("Kunde inte hitta leveransen.", "error")
             return redirect(url_for('deliveries'))
             
@@ -360,16 +405,20 @@ def update_current_stock(order_name):
             row_dict['Current Stock'] = current_stock
             updated_details.append(row_dict)
         
-        # Spara uppdaterad data i session
+        # Spara uppdaterad data i cache
         from data import DATAFRAME_CACHE
         cache_key = f"delivery_details_{order_name}"
         DATAFRAME_CACHE[cache_key] = updated_details
-        logger.info(f"Uppdaterade detaljer sparade i cache: {updated_details}")
         
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({'success': True})
+            
         flash(f"Lagersaldo uppdaterat från Centra! Totalt {len(updated_details)} produkter.", "success")
         
     except Exception as e:
         logger.error(f"Fel vid uppdatering av lagersaldo: {str(e)}")
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({'error': str(e)}), 500
         flash(f"Kunde inte uppdatera lagersaldo: {str(e)}", "error")
     
     return redirect(url_for('deliveries_process', order_name=order_name))
@@ -397,15 +446,19 @@ def deliveries_reactivate(order_name):
     
     try:
         # Hitta leveransen och sätt IsActive = True
-        mask = ALL_ORDERS_DF['OrderName'] == order_name
-        if not any(mask):
+        order_mask = ALL_ORDERS_DF['OrderName'].astype(str) == str(order_name)
+        if not any(order_mask):
             flash(f"Kunde inte hitta leverans: {order_name}", "error")
             return redirect(url_for("deliveries"))
             
-        ALL_ORDERS_DF.loc[mask, 'IsActive'] = True
+        # Sätt IsActive till True och spara
+        ALL_ORDERS_DF.loc[order_mask, 'IsActive'] = True
+        ALL_ORDERS_DF['IsActive'] = ALL_ORDERS_DF['IsActive'].astype(bool)  # Säkerställ boolean
+        
         from data import save_orders_to_file
         save_orders_to_file()
         
+        logger.info(f"Leverans {order_name} återaktiverad")
         flash(f"Leverans {order_name} återaktiverad!", "success")
         
     except Exception as e:
@@ -418,39 +471,76 @@ def deliveries_reactivate(order_name):
 @app.route('/deliveries/view/<order_name>')
 def deliveries_view(order_name):
     """
-    Visa detaljer för en avklarad leverans
+    Visa detaljer för en leverans (aktiv eller avklarad)
     """
-    from data import logger, ALL_ORDERS_DF
+    from data import logger, get_delivery_details
     
     try:
-        # Hämta leveransdetaljer
-        details_df = ALL_ORDERS_DF[ALL_ORDERS_DF['OrderName'] == order_name].copy()
-        if details_df.empty:
+        # Hämta leveransdetaljer utan att filtrera på IsActive
+        details_df = get_delivery_details(order_name, only_active=False)
+        if details_df is None or details_df.empty:
             flash("Kunde inte hitta leveransen.", "error")
             return redirect(url_for("deliveries"))
             
-        # Logga kolumnnamn och första raden för debugging
-        logger.info(f"Kolumner i details_df: {details_df.columns.tolist()}")
-        if not details_df.empty:
-            logger.info(f"Första raden: {details_df.iloc[0].to_dict()}")
+        # Kolla om leveransen är aktiv
+        is_active = any(details_df['IsActive'])
         
-        # Standardisera kolumnnamnen
-        if 'Quantity received' in details_df.columns:
-            details_df['Mottagen mängd'] = details_df['Quantity received']
-        if 'Comment' in details_df.columns:
-            details_df['Kommentar'] = details_df['Comment']
-            
+        # Logga för debugging
+        logger.info(f"Visar detaljer för leverans {order_name}")
+        logger.info(f"IsActive status: {details_df['IsActive'].tolist()}")
+        
         details = details_df.to_dict(orient="records")
         return render_template(
             "deliveries_view.html",
             order_name=order_name,
-            details=details
+            details=details,
+            is_active=is_active
         )
         
     except Exception as e:
         logger.error(f"Fel vid visning av leverans: {str(e)}")
         flash(f"Kunde inte visa leveransdetaljer: {str(e)}", "error")
         return redirect(url_for("deliveries"))
+
+
+@app.route('/deliveries/export/<order_name>')
+def export_delivery_details(order_name):
+    """Exportera leveransdetaljer till CSV"""
+    try:
+        # Hämta leveransdetaljer
+        details_df = get_delivery_details(order_name, only_active=False)
+        if details_df is None or details_df.empty:
+            flash("Kunde inte hitta leveransen.", "error")
+            return redirect(url_for("deliveries"))
+
+        # Skapa CSV i minnet
+        output = io.StringIO()
+        writer = csv.writer(output)
+        
+        # Skriv headers
+        writer.writerow(['Artikelnummer', 'Mottagen mängd', 'Nytt snitt SEK'])
+        
+        # Skriv data
+        for _, row in details_df.iterrows():
+            writer.writerow([
+                row.get('Product Number', ''),
+                row.get('Mottagen mängd', 0),
+                f"{row.get('new_avg_cost', 0):.2f}"
+            ])
+        
+        # Förbered filen för nedladdning
+        output.seek(0)
+        return send_file(
+            io.BytesIO(output.getvalue().encode('utf-8')),
+            mimetype='text/csv',
+            as_attachment=True,
+            download_name=f'leverans_{order_name}_{datetime.now().strftime("%Y%m%d")}.csv'
+        )
+        
+    except Exception as e:
+        logger.error(f"Fel vid export av leveransdetaljer: {str(e)}")
+        flash(f"Kunde inte exportera leveransdetaljer: {str(e)}", "error")
+        return redirect(url_for("deliveries_view", order_name=order_name))
 
 
 if __name__ == "__main__":

@@ -1,17 +1,121 @@
 {% extends "base.html" %}
 {% block content %}
 <h2>Skapa ny leverans</h2>
-<p>Ladda upp en CSV-fil med kolumnerna: <code>ProductID, Product Number, Product Name, Supplier, PurchasePrice, Quantity to Order, Size</code></p>
 
-<form method="POST" action="{{ url_for('deliveries_create') }}" enctype="multipart/form-data">
+<div class="alert alert-info">
+  <h5>Obligatoriska kolumner:</h5>
+  <ul>
+    <li><code>ProductID</code> - Produktens ID-nummer</li>
+    <li><code>Product Number</code> - Artikelnummer</li>
+    <li><code>Product Name</code> - Produktnamn</li>
+    <li><code>Supplier</code> - Leverantör</li>
+    <li><code>Size</code> - Storlek</li>
+    <li><code>Quantity to Order</code> - Antal att beställa</li>
+  </ul>
+</div>
+
+<form method="POST" action="{{ url_for('deliveries_create') }}" enctype="multipart/form-data" id="deliveryForm">
   <div class="mb-3">
     <label for="order_name" class="form-label">Namn på leveransen</label>
     <input type="text" class="form-control" id="order_name" name="order_name" required>
   </div>
   <div class="mb-3">
     <label for="csv_file" class="form-label">Välj CSV-fil</label>
-    <input type="file" class="form-control" id="csv_file" name="csv_file" accept=".csv" required>
+    <input type="file" class="form-control" id="csv_file" name="csv_file" accept=".csv" required 
+           onchange="previewCSV(this)">
   </div>
-  <button type="submit" class="btn btn-primary">Importera</button>
+  <button type="submit" class="btn btn-primary" id="submitBtn" disabled>Importera</button>
 </form>
+
+<div id="previewContainer" class="mt-4" style="display: none;">
+  <h4>Förhandsgranskning</h4>
+  <div class="alert alert-warning" id="missingColumns" style="display: none;">
+    <strong>Varning!</strong> Följande obligatoriska kolumner saknas:
+    <ul id="missingColumnsList"></ul>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-sm" id="previewTable">
+      <thead></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+const REQUIRED_COLUMNS = ['ProductID', 'Product Number', 'Product Name', 'Supplier', 'Size', 'Quantity to Order'];
+
+function previewCSV(input) {
+  const file = input.files[0];
+  const reader = new FileReader();
+  
+  reader.onload = function(e) {
+    const text = e.target.result;
+    const lines = text.split('\n');
+    if (lines.length < 2) return;
+    
+    const headers = lines[0].split(',').map(h => h.trim());
+    
+    // Kontrollera obligatoriska kolumner
+    const missingColumns = REQUIRED_COLUMNS.filter(col => !headers.includes(col));
+    const missingColumnsDiv = document.getElementById('missingColumns');
+    const missingColumnsList = document.getElementById('missingColumnsList');
+    const submitBtn = document.getElementById('submitBtn');
+    
+    missingColumnsList.innerHTML = '';
+    if (missingColumns.length > 0) {
+      missingColumns.forEach(col => {
+        const li = document.createElement('li');
+        li.textContent = col;
+        missingColumnsList.appendChild(li);
+      });
+      missingColumnsDiv.style.display = 'block';
+      submitBtn.disabled = true;
+    } else {
+      missingColumnsDiv.style.display = 'none';
+      submitBtn.disabled = false;
+    }
+    
+    // Visa preview
+    const previewContainer = document.getElementById('previewContainer');
+    const table = document.getElementById('previewTable');
+    const thead = table.querySelector('thead');
+    const tbody = table.querySelector('tbody');
+    
+    // Rensa tidigare preview
+    thead.innerHTML = '';
+    tbody.innerHTML = '';
+    
+    // Lägg till headers
+    const headerRow = document.createElement('tr');
+    headers.forEach(header => {
+      const th = document.createElement('th');
+      th.textContent = header;
+      if (REQUIRED_COLUMNS.includes(header)) {
+        th.className = 'table-primary';
+      }
+      headerRow.appendChild(th);
+    });
+    thead.appendChild(headerRow);
+    
+    // Visa första 5 raderna
+    const dataLines = lines.slice(1, 6);
+    dataLines.forEach(line => {
+      if (line.trim()) {
+        const row = document.createElement('tr');
+        const cells = line.split(',');
+        cells.forEach(cell => {
+          const td = document.createElement('td');
+          td.textContent = cell.trim();
+          row.appendChild(td);
+        });
+        tbody.appendChild(row);
+      }
+    });
+    
+    previewContainer.style.display = 'block';
+  };
+  
+  reader.readAsText(file);
+}
+</script>
 {% endblock %}

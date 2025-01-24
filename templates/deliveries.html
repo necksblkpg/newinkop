@@ -18,8 +18,12 @@
             Produkter: {{ row.ProductCount }} (Totalt {{ row.QuantitySum }} st)
           </div>
           <div>
-            <a href="{{ url_for('deliveries_process', order_name=row.OrderName|string|urlencode) }}" class="btn btn-sm btn-success" title="Ta emot">Ta emot</a>
-            <a href="{{ url_for('deliveries_cancel', order_name=row.OrderName) }}" class="btn btn-sm btn-danger" title="Makulera">Makulera</a>
+            <a href="{{ url_for('deliveries_view', order_name=row.OrderName) }}" 
+               class="btn btn-sm btn-info">Visa detaljer</a>
+            <a href="{{ url_for('deliveries_process', order_name=row.OrderName|string|urlencode) }}" 
+               class="btn btn-sm btn-success" title="Ta emot">Ta emot</a>
+            <a href="{{ url_for('deliveries_cancel', order_name=row.OrderName) }}" 
+               class="btn btn-sm btn-danger" title="Makulera">Makulera</a>
           </div>
         </div>
       </li>

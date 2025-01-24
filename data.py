@@ -113,61 +113,74 @@ def load_orders_from_file():
         "ProductID",
         "Size",
         "Quantity ordered",
-        "Mottagen mängd",  # Lägg till denna
-        "Kommentar",       # Lägg till denna
+        "Mottagen mängd",
         "PurchasePrice",
+        "Price",
+        "Currency",
+        "Exchange rate",
+        "Shipping",
+        "Customs",
+        "Kommentar",
         "IsActive"
     ]
     
     if os.path.isfile(ACTIVE_ORDERS_FILE):
         try:
             df = pd.read_csv(ACTIVE_ORDERS_FILE, dtype={
-                "ProductID": str, 
+                "ProductID": str,
                 "Size": str,
-                "Mottagen mängd": float,  # Lägg till denna
-                "Kommentar": str          # Lägg till denna
+                "Currency": str,
+                "Kommentar": str,
+                "Price": float,
+                "Exchange rate": float,
+                "Shipping": float,
+                "Customs": float,
+                "Mottagen mängd": float,
+                "IsActive": bool  # Explicit bool datatype
             })
             
-            # Lägg till saknade kolumner med standardvärden
-            if "IsActive" not in df.columns:
-                df["IsActive"] = True
-            if "OrderName" not in df.columns:
-                df["OrderName"] = "Beställning " + df["OrderDate"]
-            if "Mottagen mängd" not in df.columns:
-                df["Mottagen mängd"] = df["Quantity ordered"]  # Sätt till beställd mängd som default
-            if "Kommentar" not in df.columns:
-                df["Kommentar"] = ""  # Tom sträng som default
-                
-            df['Quantity ordered'] = pd.to_numeric(df['Quantity ordered'], errors='coerce').fillna(0)
-            df['Mottagen mängd'] = pd.to_numeric(df['Mottagen mängd'], errors='coerce').fillna(0)
+            # Säkerställ att IsActive är boolean
+            if 'IsActive' in df.columns:
+                df['IsActive'] = df['IsActive'].astype(bool)
+            else:
+                df['IsActive'] = True
             
-            # Säkerställ att alla kolumner finns
+            # Lägg till saknade kolumner med standardvärden
             for col in required_columns:
                 if col not in df.columns:
-                    df[col] = None
-            
-            # Lägg till loggning
-            logger.info(f"Laddade ordrar från fil. Antal rader: {len(df)}")
-            logger.info(f"Aktiva ordrar: {df[df['IsActive'] == True]['OrderName'].tolist()}")
-            logger.info(f"Tillgängliga kolumner: {df.columns.tolist()}")
+                    if col in ["Price", "Exchange rate", "Shipping", "Customs"]:
+                        df[col] = 0.0
+                    elif col == "Currency":
+                        df[col] = "SEK"
+                    elif col == "Kommentar":
+                        df[col] = ""
+                    elif col == "IsActive":
+                        df[col] = True
+                    elif col == "Mottagen mängd":
+                        df[col] = df["Quantity ordered"]
             
             ALL_ORDERS_DF = df
-            logger.info("Ordrar laddade från active_orders.csv.")
+            logger.info(f"Laddade ordrar från fil. Antal rader: {len(df)}")
+            logger.info(f"Aktiva ordrar: {df[df['IsActive'] == True]['OrderName'].unique().tolist()}")
+            logger.info(f"Inaktiva ordrar: {df[df['IsActive'] == False]['OrderName'].unique().tolist()}")
+            
         except Exception as e:
             logger.error(f"Kunde inte läsa {ACTIVE_ORDERS_FILE}: {str(e)}")
-            # Skapa en tom DataFrame med alla kolumner
             ALL_ORDERS_DF = pd.DataFrame(columns=required_columns)
     else:
         logger.info("Ingen active_orders.csv hittad. ALL_ORDERS_DF blir tom.")
-        # Skapa en tom DataFrame med alla kolumner
         ALL_ORDERS_DF = pd.DataFrame(columns=required_columns)
 
 def save_orders_to_file():
     """Sparar ALL_ORDERS_DF till CSV."""
     global ALL_ORDERS_DF
     try:
+        # Säkerställ att IsActive är boolean innan sparning
+        ALL_ORDERS_DF['IsActive'] = ALL_ORDERS_DF['IsActive'].astype(bool)
+        
         ALL_ORDERS_DF.to_csv(ACTIVE_ORDERS_FILE, index=False)
         logger.info("Ordrar sparade till active_orders.csv.")
+        logger.info(f"Aktiva ordrar efter sparning: {ALL_ORDERS_DF[ALL_ORDERS_DF['IsActive'] == True]['OrderName'].unique().tolist()}")
     except Exception as e:
         logger.error(f"Kunde inte spara ordrar: {str(e)}")
 
@@ -748,107 +761,134 @@ def handle_delivery_completion(delivery_df, api_endpoint=None, api_token=None):
     3. Uppdatera lagersaldo i stats_df (om finns)
     """
     global ALL_ORDERS_DF
-    order_name = delivery_df['OrderName'].iloc[0]
+    order_name = str(delivery_df['OrderName'].iloc[0])
+    logger.info(f"Hanterar leveransmottagning för: {order_name}")
 
-    # Säkerställ att kolumnerna finns
-    if 'Mottagen mängd' not in ALL_ORDERS_DF.columns:
-        ALL_ORDERS_DF['Mottagen mängd'] = None
-    if 'Kommentar' not in ALL_ORDERS_DF.columns:
-        ALL_ORDERS_DF['Kommentar'] = None
+    try:
+        # Först, hitta alla rader för denna order och sätt IsActive till False
+        order_mask = ALL_ORDERS_DF['OrderName'].astype(str) == order_name
+        ALL_ORDERS_DF.loc[order_mask, 'IsActive'] = False
+        logger.info(f"Satte IsActive=False för alla rader i order {order_name}")
 
-    # Uppdatera den befintliga ordern med mottagna värden
-    for _, row in delivery_df.iterrows():
-        product_mask = (ALL_ORDERS_DF['OrderName'] == order_name) & \
-                      (ALL_ORDERS_DF['ProductID'] == row['ProductID']) & \
-                      (ALL_ORDERS_DF['Size'] == row['Size'])
-        
-        # Uppdatera värdena i ALL_ORDERS_DF
-        ALL_ORDERS_DF.loc[product_mask, 'Mottagen mängd'] = row['Mottagen mängd']
-        ALL_ORDERS_DF.loc[product_mask, 'Kommentar'] = row['Kommentar']
-        ALL_ORDERS_DF.loc[product_mask, 'IsActive'] = False
+        # Säkerställ att kolumnerna finns
+        new_columns = ['Mottagen mängd', 'Price', 'Currency', 
+                      'Exchange rate', 'Shipping', 'Customs',
+                      'new_price_sek', 'new_avg_cost']
+        for col in new_columns:
+            if col not in ALL_ORDERS_DF.columns:
+                ALL_ORDERS_DF[col] = None
 
-    # Spara ändringar till fil
-    save_orders_to_file()
-
-    # Uppdatera stats_df (om vi har en)
-    from data import DATAFRAME_CACHE
-    df = DATAFRAME_CACHE.get("stats_df")
-    if df is not None and not df.empty:
+        # Uppdatera den befintliga ordern med mottagna värden
         for _, row in delivery_df.iterrows():
-            pid = row['ProductID']
-            size = row['Size']
-            qty_received = row['Mottagen mängd']
-            new_price = row['PurchasePrice']
-
-            # Hämta aktuellt lagersaldo från Centra
-            current_stock = 0
-            if api_endpoint and api_token:
-                current_stock = get_current_stock_from_centra(api_endpoint, api_token, pid, size)
-
-            product_mask = (df['ProductID'] == pid) & (df['Size'] == size)
-            if any(product_mask):
-                current_price = df.loc[product_mask, 'PurchasePrice'].iloc[0]
+            product_mask = (ALL_ORDERS_DF['OrderName'].astype(str) == order_name) & \
+                          (ALL_ORDERS_DF['ProductID'].astype(str) == str(row['ProductID'])) & \
+                          (ALL_ORDERS_DF['Size'].astype(str) == str(row['Size']))
+            
+            if not any(product_mask):
+                logger.error(f"Kunde inte hitta matchande rad för {row['ProductID']} {row['Size']}")
+                continue
+            
+            # Uppdatera alla värden
+            update_columns = {
+                'Mottagen mängd': row['Mottagen mängd'],
+                'Price': row['Price'],
+                'Currency': row['Currency'],
+                'Exchange rate': row['Exchange rate'],
+                'Shipping': row['Shipping'],
+                'Customs': row['Customs'],
+                'new_price_sek': row.get('new_price_sek', 0),
+                'new_avg_cost': row.get('new_avg_cost', 0)
+            }
+            
+            for col, value in update_columns.items():
+                ALL_ORDERS_DF.loc[product_mask, col] = value
                 
-                # Beräkna nytt PurchasePrice
-                new_weighted_price = calculate_new_purchase_price(
-                    pid, size, current_stock, current_price, 
-                    qty_received, new_price
-                )
-                
-                # Uppdatera både pris och lagersaldo
-                df.loc[product_mask, 'PurchasePrice'] = new_weighted_price
-                df.loc[product_mask, 'Stock Balance'] += qty_received
+            logger.info(f"Uppdaterade värden för {row['ProductID']} {row['Size']}")
 
-        df = add_incoming_stock_columns(df)
-        DATAFRAME_CACHE["stats_df"] = df
+        # Verifiera att IsActive är False och visa alla värden för debugging
+        debug_df = ALL_ORDERS_DF[order_mask].copy()
+        logger.info(f"Debug - Order {order_name} efter uppdatering:")
+        logger.info(f"IsActive värden: {debug_df['IsActive'].tolist()}")
+        logger.info(f"OrderName värden: {debug_df['OrderName'].tolist()}")
+
+        # Spara ändringar till fil
+        save_orders_to_file()
+        
+        # Verifiera efter sparning
+        ALL_ORDERS_DF = pd.read_csv(ACTIVE_ORDERS_FILE)
+        verify_df = ALL_ORDERS_DF[ALL_ORDERS_DF['OrderName'].astype(str) == order_name]
+        logger.info(f"Verifiering efter sparning - IsActive värden för order {order_name}: {verify_df['IsActive'].tolist()}")
+
+    except Exception as e:
+        logger.error(f"Fel i handle_delivery_completion: {str(e)}")
+        raise e
 
 def get_active_deliveries_summary():
     """
-    Returnerar en lista av dict med grupp-info:
-    {
-      "OrderName": "...",
-      "OrderDate": "...",
-      "QuantitySum": ...,
-      "ProductCount": ...
-    }
-    för IsActive=True
+    Returnerar en sammanfattning av aktiva leveranser.
     """
     global ALL_ORDERS_DF
-    active_orders = ALL_ORDERS_DF[ALL_ORDERS_DF['IsActive'] == True].copy()
-    if active_orders.empty:
+    
+    if ALL_ORDERS_DF.empty:
+        return []
+    
+    # Filtrera först på IsActive == True
+    active = ALL_ORDERS_DF[ALL_ORDERS_DF['IsActive'] == True].copy()
+    
+    if active.empty:
         return []
 
-    grouped = active_orders.groupby("OrderName").agg({
+    # Gruppera per OrderName och beräkna summor
+    grouped = active.groupby("OrderName").agg({
         "OrderDate": "first",
         "Quantity ordered": "sum",
         "ProductID": "count"
     }).reset_index()
+    
+    # Byt namn på kolumnerna för tydlighet
     grouped.rename(columns={
         "Quantity ordered": "QuantitySum",
         "ProductID": "ProductCount"
     }, inplace=True)
+    
+    logger.info(f"Aktiva leveranser: {grouped['OrderName'].tolist()}")
     return grouped.to_dict(orient="records")
 
 def get_completed_deliveries_summary():
+    """
+    Returnerar en sammanfattning av avklarade leveranser.
+    """
     global ALL_ORDERS_DF
+    
+    if ALL_ORDERS_DF.empty:
+        return []
+    
+    # Filtrera först på IsActive == False
     completed = ALL_ORDERS_DF[ALL_ORDERS_DF['IsActive'] == False].copy()
+    
     if completed.empty:
         return []
 
+    # Gruppera per OrderName och beräkna summor
     grouped = completed.groupby("OrderName").agg({
         "OrderDate": "first",
         "Quantity ordered": "sum",
         "ProductID": "count"
     }).reset_index()
+    
+    # Byt namn på kolumnerna för tydlighet
     grouped.rename(columns={
         "Quantity ordered": "QuantitySum",
         "ProductID": "ProductCount"
     }, inplace=True)
+    
+    logger.info(f"Avklarade leveranser: {grouped['OrderName'].tolist()}")
     return grouped.to_dict(orient="records")
 
-def get_delivery_details(order_name):
+def get_delivery_details(order_name, only_active=False):
     """
-    Returnerar rad-detaljer (DataFrame) för en enskild leverans (IsActive=True).
+    Returnerar rad-detaljer (DataFrame) för en enskild leverans.
+    Om only_active=True, returnera bara aktiva leveranser.
     """
     global ALL_ORDERS_DF
     
@@ -856,17 +896,21 @@ def get_delivery_details(order_name):
     order_name = str(order_name)
     
     logger.info(f"Hämtar leveransdetaljer för: '{order_name}'")
-    logger.info(f"Aktiva ordrar: {ALL_ORDERS_DF[ALL_ORDERS_DF['IsActive'] == True]['OrderName'].tolist()}")
     
-    df = ALL_ORDERS_DF[
-        (ALL_ORDERS_DF['OrderName'].astype(str) == order_name) &
-        (ALL_ORDERS_DF['IsActive'] == True)
-    ].copy()
+    # Skapa mask för order_name
+    order_mask = ALL_ORDERS_DF['OrderName'].astype(str) == order_name
+    
+    # Om only_active är True, lägg till IsActive i masken
+    if only_active:
+        order_mask = order_mask & (ALL_ORDERS_DF['IsActive'] == True)
+    
+    df = ALL_ORDERS_DF[order_mask].copy()
     
     if df.empty:
         logger.warning(f"Inga detaljer hittades för leverans: '{order_name}'")
     else:
         logger.info(f"Hittade {len(df)} rader för leverans '{order_name}'")
+        logger.info(f"IsActive status: {df['IsActive'].tolist()}")
     
     return df if not df.empty else None
 

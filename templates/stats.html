@@ -1,8 +1,47 @@
 {% extends "base.html" %}
 {% block content %}
+<!-- Lägg till CSS för laddningsindikatorn -->
+<style>
+  .loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.8);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+  }
+  
+  .loading-spinner {
+    width: 50px;
+    height: 50px;
+    border: 5px solid #f3f3f3;
+    border-top: 5px solid #3498db;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+  
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+</style>
+
 <h2>Statistik & Översikt</h2>
 
-<form method="POST" action="{{ url_for('stats') }}" class="row g-3">
+<!-- Lägg till laddningsindikator -->
+<div id="loadingOverlay" class="loading-overlay">
+  <div class="loading-content text-center">
+    <div class="loading-spinner mb-3"></div>
+    <h4>Hämtar data...</h4>
+    <p>Detta kan ta några sekunder</p>
+  </div>
+</div>
+
+<form method="POST" action="{{ url_for('stats') }}" class="row g-3" id="statsForm">
   <div class="col-md-3">
     <label for="from_date" class="form-label">Från Datum</label>
     <input type="date" class="form-control" id="from_date" name="from_date" value="{{ from_date }}">
@@ -39,15 +78,105 @@
 
 <hr>
 
-{% if df_table %}
-<h3>Resultat:</h3>
-<div class="table-responsive">
-  {{ df_table|safe }}
+<!-- Uppdatera informationsrutan -->
+<div class="alert alert-info" role="alert">
+  <h5>Förklaring av beräknade värden:</h5>
+  
+  <p><strong>Reorder Level</strong> - När lagret når denna nivå bör du beställa mer. Beräknas som:<br>
+  <code>Genomsnittlig försäljning per dag × Leveranstid + Säkerhetslager</code></p>
+  
+  <p><strong>Quantity to Order</strong> - Rekommenderad beställningsmängd. Beräknas som:<br>
+  <code>Reorder Level - Nuvarande lagersaldo</code><br>
+  Om detta värde är positivt betyder det att du bör beställa denna mängd.</p>
+
+  <hr>
+  <p class="mb-0">
+    <i class="fas fa-lightbulb"></i> <strong>Tips:</strong> 
+    När du skapar nya ordrar kan du använda <code>Quantity to Order</code> som utgångspunkt. 
+    Denna siffra är en rekommendation och kan justeras efter behov innan du skapar ordern.
+    För att skapa en order, exportera data till Google Sheets, justera kvantiteterna och använd CSV-filen för att skapa en ny leverans.
+  </p>
 </div>
 
-<form method="POST" action="{{ url_for('stats_push_to_sheets') }}">
-  <button type="submit" class="btn btn-outline-success">Push till Google Sheets</button>
-</form>
+{% if df_table %}
+<h3>Resultat: (Visar de 3 första raderna)</h3>
+<div class="table-responsive">
+  {{ preview_table|safe }}
+</div>
+
+<p class="text-muted">
+  Totalt antal rader i datasetet: {{ total_rows }}
+</p>
+
+<a href="#" onclick="openGoogleSheets()" class="btn btn-outline-success">
+  <i class="fas fa-table"></i> Se all data i Google Sheets
+</a>
 {% endif %}
+
+<hr>
+<h4>
+  Aktiva ordrar 
+  <button class="btn btn-sm btn-outline-secondary" type="button" 
+          data-bs-toggle="collapse" data-bs-target="#activeOrders">
+    Visa/Dölj
+  </button>
+</h4>
+
+<div class="collapse" id="activeOrders">
+  {% if active_orders %}
+    <div class="table-responsive">
+      <table class="table table-striped table-hover">
+        <thead>
+          <tr>
+            <th>Ordernummer</th>
+            <th>Datum</th>
+            <th>Antal produkter</th>
+            <th>Total kvantitet</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for order in active_orders %}
+            <tr>
+              <td>{{ order.OrderName }}</td>
+              <td>{{ order.OrderDate }}</td>
+              <td>{{ order.ProductCount }}</td>
+              <td>{{ order.QuantitySum }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p><em>Inga aktiva ordrar.</em></p>
+  {% endif %}
+</div>
+
+<!-- Lägg till JavaScript för att hantera laddningsindikatorn -->
+<script>
+document.getElementById('statsForm').addEventListener('submit', function() {
+  document.getElementById('loadingOverlay').style.display = 'flex';
+});
+
+function openGoogleSheets() {
+  document.getElementById('loadingOverlay').style.display = 'flex';
+  
+  fetch("{{ url_for('stats_push_to_sheets') }}", {
+    method: 'POST'
+  })
+  .then(response => response.json())
+  .then(data => {
+    document.getElementById('loadingOverlay').style.display = 'none';
+    if (data.sheet_url) {
+      window.open(data.sheet_url, '_blank');
+    } else {
+      alert('Kunde inte skapa Google Sheet');
+    }
+  })
+  .catch(error => {
+    document.getElementById('loadingOverlay').style.display = 'none';
+    alert('Ett fel uppstod: ' + error);
+  });
+}
+</script>
 
 {% endblock %}
