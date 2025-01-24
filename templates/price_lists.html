@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Prislistor</h2>
+
+<div class="row mb-4">
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header">
+        <h5 class="card-title mb-0">Ladda upp prislista</h5>
+      </div>
+      <div class="card-body">
+        <form method="POST" action="{{ url_for('upload_price_list') }}" enctype="multipart/form-data">
+          <div class="mb-3">
+            <label for="price_list" class="form-label">CSV-fil</label>
+            <input type="file" class="form-control" id="price_list" name="price_list" accept=".csv" required>
+            <small class="text-muted">
+              Krävda kolumner: ProductID, Size, Price, Currency
+            </small>
+          </div>
+          <div class="alert alert-info">
+            <h6>Exempel på CSV-format:</h6>
+            <div class="table-responsive">
+              <table class="table table-sm">
+                <thead>
+                  <tr>
+                    <th>ProductID</th>
+                    <th>Size</th>
+                    <th>Price</th>
+                    <th>Currency</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>1346</td>
+                    <td>One Size</td>
+                    <td>24.59</td>
+                    <td>USD</td>
+                  </tr>
+                  <tr>
+                    <td>1341</td>
+                    <td>One Size</td>
+                    <td>24.22</td>
+                    <td>EUR</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <small>
+              Tips: 
+              <ul>
+                <li>Använd komma (,) som separator</li>
+                <li>ProductID måste matcha exakt med leveransens ProductID</li>
+                <li>Size måste matcha exakt med leveransens storlek</li>
+                <li>Price ska vara i angiven Currency</li>
+                <li>Currency kan vara: USD, EUR, GBP, SEK</li>
+              </ul>
+            </small>
+          </div>
+          <button type="submit" class="btn btn-primary">Ladda upp</button>
+        </form>
+      </div>
+    </div>
+  </div>
+  
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header">
+        <h5 class="card-title mb-0">Aktiv prislista</h5>
+      </div>
+      <div class="card-body">
+        {% if price_list_exists %}
+          <div class="table-responsive">
+            <table class="table table-sm">
+              <thead>
+                <tr>
+                  <th>ProductID</th>
+                  <th>Size</th>
+                  <th>Price</th>
+                  <th>Currency</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in current_price_list %}
+                  <tr>
+                    <td>{{ row.ProductID }}</td>
+                    <td>{{ row.Size }}</td>
+                    <td>{{ row.Price }}</td>
+                    <td>{{ row.Currency }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          <small class="text-muted mt-2 d-block">Senast uppdaterad: {{ last_updated }}</small>
+        {% else %}
+          <p class="text-muted">Ingen prislista uppladdad.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %} 

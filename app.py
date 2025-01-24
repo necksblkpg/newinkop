@@ -26,7 +26,12 @@ from data import (
     get_delivery_details,
     verify_active_delivery,
     get_current_stock_from_centra,
-    test_stock_query
+    test_stock_query,
+    get_price_lists,
+    save_price_list,
+    find_price_in_list,
+    delete_price_list,
+    PRICE_LISTS_FILE
 )
 from sheets import push_to_google_sheets
 
@@ -314,7 +319,7 @@ def deliveries_process(order_name):
             # Godkänn leverans
             handle_delivery_completion(delivery_df, api_endpoint, api_token)
             flash("Leverans mottagen och arkiverad!", "success")
-            return redirect(url_for("deliveries"))
+            return redirect(url_for("deliveries_view", order_name=order_name))
             
         # GET-request - visa formulär
         details_df = get_delivery_details(order_name)
@@ -541,6 +546,75 @@ def export_delivery_details(order_name):
         logger.error(f"Fel vid export av leveransdetaljer: {str(e)}")
         flash(f"Kunde inte exportera leveransdetaljer: {str(e)}", "error")
         return redirect(url_for("deliveries_view", order_name=order_name))
+
+
+@app.route('/price_lists')
+def price_lists():
+    """Visa prislistor"""
+    price_list_exists = os.path.exists(PRICE_LISTS_FILE)
+    last_updated = None
+    current_price_list = []
+    
+    if price_list_exists:
+        last_updated = datetime.fromtimestamp(os.path.getmtime(PRICE_LISTS_FILE)).strftime('%Y-%m-%d %H:%M:%S')
+        try:
+            df = pd.read_csv(PRICE_LISTS_FILE)
+            current_price_list = df.to_dict('records')
+        except Exception as e:
+            logger.error(f"Fel vid läsning av prislista: {str(e)}")
+    
+    return render_template('price_lists.html', 
+                         price_list_exists=price_list_exists,
+                         last_updated=last_updated,
+                         current_price_list=current_price_list)
+
+@app.route('/price_lists/upload', methods=['POST'])
+def upload_price_list():
+    """Hantera uppladdning av prislista"""
+    try:
+        file = request.files['price_list']
+        
+        if file and file.filename.endswith('.csv'):
+            # Läs CSV med explicit datatyper
+            df = pd.read_csv(
+                file,
+                dtype={
+                    'ProductID': str,
+                    'Size': str,
+                    'Price': float,
+                    'Currency': str
+                }
+            )
+            save_price_list(df)
+            flash(f"Prislista har laddats upp med {len(df)} produkter", "success")
+        else:
+            flash("Ogiltig fil. Endast CSV-filer är tillåtna.", "error")
+            
+    except Exception as e:
+        flash(f"Fel vid uppladdning: {str(e)}", "error")
+        
+    return redirect(url_for('price_lists'))
+
+@app.route('/price_lists/get_price', methods=['POST'])
+def get_price():
+    """Hämta pris från prislista"""
+    data = request.json
+    result = find_price_in_list(
+        data['product_id'],
+        data['product_number'],
+        data['size']
+    )
+    if result:
+        # Returnera både pris och valuta
+        return jsonify({
+            'success': True,
+            'price': result['price'],
+            'currency': result['currency']
+        })
+    return jsonify({
+        'success': False,
+        'message': 'Inget pris hittades i prislistan'
+    })
 
 
 if __name__ == "__main__":

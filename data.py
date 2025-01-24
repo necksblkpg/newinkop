@@ -29,6 +29,9 @@ logger = logging.getLogger(__name__)
 ACTIVE_ORDERS_FILE = "active_orders.csv"
 PRODUCT_COSTS_FILE = "product_costs.csv"
 
+# Konstant för prisliste-filen
+PRICE_LISTS_FILE = "price_lists.json"
+
 # -----------------------------------------------------------
 # 1) Snittkostnader (product_costs.csv)
 # -----------------------------------------------------------
@@ -1059,3 +1062,91 @@ def test_stock_query(api_endpoint, api_token, product_id, size):
     logger.info(f"Resultat: {stock}")
     logger.info("=== TEST SLUT ===")
     return stock
+
+def get_price_lists():
+    """Hämta alla aktiva prislistor"""
+    try:
+        if not os.path.exists(PRICE_LISTS_FILE):
+            return []
+            
+        with open(PRICE_LISTS_FILE, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except Exception as e:
+        logger.error(f"Fel vid läsning av prislistor: {str(e)}")
+        return []
+
+def save_price_list(df):
+    """Spara en ny prislista"""
+    try:
+        # Validera att alla krävda kolumner finns
+        required_columns = ['ProductID', 'Size', 'Price', 'Currency']
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            raise ValueError(f"Saknade kolumner i CSV: {', '.join(missing_columns)}")
+        
+        # Konvertera kolumner till rätt format
+        df['ProductID'] = df['ProductID'].astype(str)
+        df['Size'] = df['Size'].astype(str)
+        df['Price'] = df['Price'].astype(float)
+        df['Currency'] = df['Currency'].astype(str)
+        
+        logger.info(f"Sparar prislista med följande data:")
+        logger.info(df.to_string())
+        
+        # Spara direkt till fil, ersätt befintlig
+        df[required_columns].to_csv(PRICE_LISTS_FILE, index=False)
+        
+        logger.info(f"Sparade prislista med {len(df)} produkter")
+        
+    except Exception as e:
+        logger.error(f"Fel vid sparande av prislista: {str(e)}")
+        raise
+
+def find_price_in_list(product_id, product_number, size):
+    """Hitta pris för en produkt i prislistan"""
+    try:
+        if not os.path.exists(PRICE_LISTS_FILE):
+            logger.warning("Ingen prislista finns")
+            return None
+            
+        df = pd.read_csv(PRICE_LISTS_FILE)
+        logger.info(f"Söker efter ProductID={product_id}, Size={size}")
+        logger.info("Prislista innehåll:")
+        logger.info(df.to_string())
+        
+        # Sök efter produkten
+        mask = (df['ProductID'].astype(str) == str(product_id)) & \
+               (df['Size'].astype(str) == str(size))
+        
+        logger.info(f"Antal matchande rader: {mask.sum()}")
+        
+        if any(mask):
+            row = df[mask].iloc[0]
+            logger.info(f"Hittade matchande rad: {row.to_dict()}")
+            return {
+                'price': float(row['Price']),
+                'currency': row['Currency']
+            }
+        
+        logger.warning(f"Ingen produkt hittad för {product_id} {size}")
+        return None
+            
+    except Exception as e:
+        logger.error(f"Fel vid sökning i prislista: {str(e)}")
+        return None
+
+def delete_price_list(supplier):
+    """Ta bort en prislista"""
+    try:
+        price_lists = get_price_lists()
+        price_lists = [pl for pl in price_lists if pl['supplier'] != supplier]
+        
+        with open(PRICE_LISTS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(price_lists, f, ensure_ascii=False, indent=2)
+            
+        logger.info(f"Tog bort prislista för {supplier}")
+        return True
+        
+    except Exception as e:
+        logger.error(f"Fel vid borttagning av prislista: {str(e)}")
+        return False
