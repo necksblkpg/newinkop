@@ -653,6 +653,82 @@ def delete_price_list_item():
         })
 
 
+@app.route('/price_lists/add_item', methods=['POST'])
+def add_price_list_item():
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'message': 'Ingen data skickades'}), 400
+
+        required_fields = ['product_id', 'size', 'price', 'currency']
+        if not all(field in data for field in required_fields):
+            return jsonify({'success': False, 'message': 'Saknade fält i data'}), 400
+
+        # Läs in befintlig prislista
+        price_list_df = pd.read_csv(PRICE_LISTS_FILE) if os.path.exists(PRICE_LISTS_FILE) else pd.DataFrame(columns=required_fields)
+
+        # Kontrollera om produkten redan finns
+        mask = (price_list_df['ProductID'].astype(str) == str(data['product_id'])) & \
+               (price_list_df['Size'].astype(str) == str(data['size']))
+        
+        if any(mask):
+            return jsonify({'success': False, 'message': 'Produkten finns redan i prislistan'}), 400
+
+        # Lägg till ny rad
+        new_row = pd.DataFrame([{
+            'ProductID': str(data['product_id']),
+            'Size': str(data['size']),
+            'Price': float(data['price']),
+            'Currency': str(data['currency'])
+        }])
+        
+        price_list_df = pd.concat([price_list_df, new_row], ignore_index=True)
+        price_list_df.to_csv(PRICE_LISTS_FILE, index=False)
+
+        return jsonify({'success': True})
+
+    except Exception as e:
+        logger.error(f"Fel vid tillägg av produkt i prislista: {str(e)}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/search_products')
+def search_products():
+    try:
+        query = request.args.get('query', '').strip()
+        if not query or len(query) < 2:
+            return jsonify({'products': []})
+
+        api_endpoint = os.environ.get('YOUR_API_ENDPOINT')
+        api_token = os.environ.get('CENTRA_API_TOKEN')
+
+        if not api_endpoint or not api_token:
+            return jsonify({'products': []})
+
+        # Hämta produkter från Centra som matchar sökningen
+        products_df = fetch_all_products(api_endpoint, api_token)
+        if products_df is None or products_df.empty:
+            return jsonify({'products': []})
+
+        # Filtrera baserat på ProductID eller Product Name
+        mask = (products_df['ProductID'].astype(str).str.contains(query, case=False)) | \
+               (products_df['Product Name'].astype(str).str.contains(query, case=False))
+        
+        filtered_df = products_df[mask].head(10)  # Begränsa till 10 resultat
+        
+        results = filtered_df.apply(lambda row: {
+            'ProductID': str(row['ProductID']),
+            'Product_Name': str(row['Product Name']),
+            'Size': str(row['Size'])
+        }, axis=1).tolist()
+
+        return jsonify({'products': results})
+
+    except Exception as e:
+        logger.error(f"Fel vid produktsökning: {str(e)}")
+        return jsonify({'products': []})
+
+
 if __name__ == "__main__":
     initialize_app()
     app.run(host='0.0.0.0', port=5000, debug=True)
