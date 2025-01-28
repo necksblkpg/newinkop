@@ -36,14 +36,9 @@
 
 <hr>
 
-<h4>
-  Avklarade leveranser 
-  <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#completedOrders">
-    Visa/Dölj
-  </button>
-</h4>
+<h4>Avklarade leveranser</h4>
 
-<div class="collapse mt-3" id="completedOrders">
+<div class="mt-3">
   {% if completed_orders %}
     <ul class="list-group">
       {% for row in completed_orders %}

@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Dashboard</h2>
+
+<div class="row g-4">
+  <!-- Leveransstatistik -->
+  <div class="col-md-6">
+    <div class="card h-100">
+      <div class="card-header">
+        <h5 class="card-title mb-0">Leveranser per månad</h5>
+      </div>
+      <div class="card-body">
+        <canvas id="deliveriesChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Lagervärde och inköpspriser -->
+  <div class="col-md-6">
+    <div class="card h-100">
+      <div class="card-header">
+        <h5 class="card-title mb-0">Lagervärde & Inköpspriser</h5>
+      </div>
+      <div class="card-body">
+        <canvas id="stockValueChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Topplista produkter -->
+  <div class="col-md-6">
+    <div class="card h-100">
+      <div class="card-header">
+        <h5 class="card-title mb-0">Mest beställda produkter</h5>
+      </div>
+      <div class="card-body">
+        <div class="table-responsive">
+          <table class="table table-sm">
+            <thead>
+              <tr>
+                <th>Produkt</th>
+                <th>Antal beställningar</th>
+                <th>Total kvantitet</th>
+                <th>Snitt SEK</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for product in top_products %}
+              <tr>
+                <td>
+                  <strong>{{ product.ProductID }}</strong><br>
+                  <small class="text-muted">{{ product.Product_Name }}</small>
+                </td>
+                <td>{{ product.Order_Count }}</td>
+                <td>{{ product.Total_Quantity }}</td>
+                <td>{{ "%.2f"|format(product.Avg_Price) }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Varningar -->
+  <div class="col-md-6">
+    <div class="card h-100">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="card-title mb-0">Varningar</h5>
+        <span class="badge bg-warning">{{ warnings|length }} aktiva</span>
+      </div>
+      <div class="card-body">
+        {% if warnings %}
+        <div class="list-group">
+          {% for warning in warnings %}
+          <div class="list-group-item list-group-item-warning">
+            <div class="d-flex w-100 justify-content-between">
+              <h6 class="mb-1">{{ warning.title }}</h6>
+              <small>{{ warning.date }}</small>
+            </div>
+            <p class="mb-1">{{ warning.message }}</p>
+            <small>
+              ProductID: {{ warning.product_id }}
+              {% if warning.size %}
+              | Storlek: {{ warning.size }}
+              {% endif %}
+            </small>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-muted mb-0">Inga aktiva varningar</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Leveranser per månad
+const deliveriesCtx = document.getElementById('deliveriesChart').getContext('2d');
+new Chart(deliveriesCtx, {
+  type: 'bar',
+  data: {
+    labels: {{ delivery_months|tojson }},
+    datasets: [{
+      label: 'Aktiva leveranser',
+      data: {{ active_deliveries_data|tojson }},
+      backgroundColor: 'rgba(75, 192, 192, 0.2)',
+      borderColor: 'rgba(75, 192, 192, 1)',
+      borderWidth: 1
+    },
+    {
+      label: 'Avklarade leveranser',
+      data: {{ completed_deliveries_data|tojson }},
+      backgroundColor: 'rgba(54, 162, 235, 0.2)',
+      borderColor: 'rgba(54, 162, 235, 1)',
+      borderWidth: 1
+    }]
+  },
+  options: {
+    responsive: true,
+    scales: {
+      y: {
+        beginAtZero: true,
+        ticks: {
+          stepSize: 1
+        }
+      }
+    }
+  }
+});
+
+// Lagervärde och inköpspriser
+const stockValueCtx = document.getElementById('stockValueChart').getContext('2d');
+new Chart(stockValueCtx, {
+  type: 'line',
+  data: {
+    labels: {{ stock_value_months|tojson }},
+    datasets: [{
+      label: 'Totalt lagervärde (SEK)',
+      data: {{ stock_value_data|tojson }},
+      borderColor: 'rgba(255, 99, 132, 1)',
+      tension: 0.1,
+      yAxisID: 'y'
+    },
+    {
+      label: 'Genomsnittligt inköpspris (SEK)',
+      data: {{ avg_purchase_price_data|tojson }},
+      borderColor: 'rgba(153, 102, 255, 1)',
+      tension: 0.1,
+      yAxisID: 'y1'
+    }]
+  },
+  options: {
+    responsive: true,
+    scales: {
+      y: {
+        type: 'linear',
+        display: true,
+        position: 'left',
+      },
+      y1: {
+        type: 'linear',
+        display: true,
+        position: 'right',
+        grid: {
+          drawOnChartArea: false,
+        },
+      }
+    }
+  }
+});
+</script>
+{% endblock %} 
