@@ -1,5 +1,8 @@
 {% extends "base.html" %}
 {% block content %}
+<!-- Debug info -->
+<p>Debug: is_active = {{ is_active }}</p>
+
 <h2>Leveransdetaljer: {{ order_name }}</h2>
 
 <div class="table-responsive">
@@ -7,20 +10,15 @@
     <thead>
       <tr>
         <th>ProductID</th>
-        <th>Storlek</th>
-        <th>Beställd kvantitet</th>
         {% if not is_active %}
           <th>Mottagen mängd</th>
           <th>Nytt snitt SEK</th>
-        {% endif %}
-        <th>PurchasePrice</th>
-        {% if details[0].get('Product Name') %}
+        {% else %}
+          <th>Storlek</th>
+          <th>Beställd kvantitet</th>
+          <th>PurchasePrice</th>
           <th>Produktnamn</th>
-        {% endif %}
-        {% if details[0].get('Product Number') %}
           <th>Artikelnummer</th>
-        {% endif %}
-        {% if details[0].get('Supplier') %}
           <th>Leverantör</th>
         {% endif %}
       </tr>
@@ -29,20 +27,15 @@
     {% for row in details %}
       <tr>
         <td>{{ row.ProductID }}</td>
-        <td>{{ row.Size }}</td>
-        <td>{{ row['Quantity ordered'] }}</td>
         {% if not is_active %}
           <td>{{ row.get('Mottagen mängd', 0) }}</td>
           <td>{{ "%.2f"|format(row.get('new_avg_cost', 0)) }}</td>
-        {% endif %}
-        <td>{{ row.PurchasePrice }}</td>
-        {% if row.get('Product Name') %}
+        {% else %}
+          <td>{{ row.Size }}</td>
+          <td>{{ row['Quantity ordered'] }}</td>
+          <td>{{ row.PurchasePrice }}</td>
           <td>{{ row['Product Name'] }}</td>
-        {% endif %}
-        {% if row.get('Product Number') %}
           <td>{{ row['Product Number'] }}</td>
-        {% endif %}
-        {% if row.get('Supplier') %}
           <td>{{ row.Supplier }}</td>
         {% endif %}
       </tr>
@@ -57,10 +50,28 @@
     <a href="{{ url_for('deliveries_process', order_name=order_name) }}" 
        class="btn btn-success">Ta emot leverans</a>
   {% else %}
-    <a href="{{ url_for('export_delivery_details', order_name=order_name) }}" 
-       class="btn btn-primary">
-       <i class="fas fa-file-download"></i> Exportera till CSV
-    </a>
+    <button onclick="exportToSheets()" class="btn btn-primary">
+      <i class="fas fa-file-download"></i> Exportera till CSV
+    </button>
   {% endif %}
 </div>
-{% endblock %} 
+
+<script>
+function exportToSheets() {
+  fetch("{{ url_for('export_delivery_details', order_name=order_name) }}")
+    .then(response => response.json())
+    .then(data => {
+      if (data.success && data.sheet_url) {
+        // Öppna Google Sheets i nytt fönster
+        window.open(data.sheet_url, '_blank');
+      } else {
+        alert('Ett fel uppstod vid export');
+      }
+    })
+    .catch(error => {
+      console.error('Export error:', error);
+      alert('Ett fel uppstod vid export');
+    });
+}
+</script>
+{% endblock %}

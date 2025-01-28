@@ -1,4 +1,4 @@
-modules = ["python-3.11", "nix"]
+modules = ["python-3.11", "web", "nix"]
 run = "streamlit run app.py"
 
 [nix]

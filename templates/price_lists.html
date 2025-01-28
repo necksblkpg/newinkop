@@ -2,101 +2,166 @@
 {% block content %}
 <h2>Prislistor</h2>
 
-<div class="row mb-4">
+<div class="row g-4">
   <div class="col-md-6">
-    <div class="card">
-      <div class="card-header">
-        <h5 class="card-title mb-0">Ladda upp prislista</h5>
-      </div>
-      <div class="card-body">
-        <form method="POST" action="{{ url_for('upload_price_list') }}" enctype="multipart/form-data">
-          <div class="mb-3">
-            <label for="price_list" class="form-label">CSV-fil</label>
-            <input type="file" class="form-control" id="price_list" name="price_list" accept=".csv" required>
-            <small class="text-muted">
-              Krävda kolumner: ProductID, Size, Price, Currency
-            </small>
-          </div>
-          <div class="alert alert-info">
-            <h6>Exempel på CSV-format:</h6>
-            <div class="table-responsive">
-              <table class="table table-sm">
-                <thead>
-                  <tr>
-                    <th>ProductID</th>
-                    <th>Size</th>
-                    <th>Price</th>
-                    <th>Currency</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td>1346</td>
-                    <td>One Size</td>
-                    <td>24.59</td>
-                    <td>USD</td>
-                  </tr>
-                  <tr>
-                    <td>1341</td>
-                    <td>One Size</td>
-                    <td>24.22</td>
-                    <td>EUR</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-            <small>
-              Tips: 
-              <ul>
-                <li>Använd komma (,) som separator</li>
-                <li>ProductID måste matcha exakt med leveransens ProductID</li>
-                <li>Size måste matcha exakt med leveransens storlek</li>
-                <li>Price ska vara i angiven Currency</li>
-                <li>Currency kan vara: USD, EUR, GBP, SEK</li>
-              </ul>
-            </small>
-          </div>
-          <button type="submit" class="btn btn-primary">Ladda upp</button>
-        </form>
-      </div>
-    </div>
-  </div>
-  
-  <div class="col-md-6">
-    <div class="card">
-      <div class="card-header">
-        <h5 class="card-title mb-0">Aktiv prislista</h5>
-      </div>
-      <div class="card-body">
-        {% if price_list_exists %}
-          <div class="table-responsive">
-            <table class="table table-sm">
-              <thead>
-                <tr>
-                  <th>ProductID</th>
-                  <th>Size</th>
-                  <th>Price</th>
-                  <th>Currency</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for row in current_price_list %}
-                  <tr>
-                    <td>{{ row.ProductID }}</td>
-                    <td>{{ row.Size }}</td>
-                    <td>{{ row.Price }}</td>
-                    <td>{{ row.Currency }}</td>
-                  </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
-          <small class="text-muted mt-2 d-block">Senast uppdaterad: {{ last_updated }}</small>
-        {% else %}
-          <p class="text-muted">Ingen prislista uppladdad.</p>
-        {% endif %}
-      </div>
+    <div class="card p-3">
+      <h5 class="card-title">Ladda upp prislista</h5>
+      <form method="POST" action="{{ url_for('upload_price_list') }}" enctype="multipart/form-data">
+        <div class="mb-3">
+          <label for="price_list" class="form-label">CSV-fil</label>
+          <input type="file" class="form-control" id="price_list" name="price_list" accept=".csv" required>
+          <small class="text-muted">Krävda kolumner: ProductID, Size, Price, Currency</small>
+        </div>
+        <div class="alert alert-info">
+          <h6>Exempel på CSV-format:</h6>
+          <table class="table table-sm mb-2">
+            <thead>
+              <tr>
+                <th>ProductID</th>
+                <th>Size</th>
+                <th>Price</th>
+                <th>Currency</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>1346</td>
+                <td>One Size</td>
+                <td>24.59</td>
+                <td>USD</td>
+              </tr>
+              <tr>
+                <td>1341</td>
+                <td>One Size</td>
+                <td>24.22</td>
+                <td>EUR</td>
+              </tr>
+            </tbody>
+          </table>
+          <small>
+            Använd komma (,) som separator. ProductID & Size måste matcha leveransens. Price i angiven Currency.
+          </small>
+        </div>
+        <button type="submit" class="btn btn-primary">Ladda upp</button>
+      </form>
     </div>
   </div>
 </div>
-{% endblock %} 
+
+<!-- Lägg till en redigeringsvy för befintlig prislista -->
+{% if current_price_list %}
+<div class="card mt-4">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <h5 class="mb-0">Aktuell Prislista</h5>
+    <small class="text-muted me-3">Senast uppdaterad: {{ last_updated }}</small>
+    <button class="btn btn-primary btn-sm" onclick="toggleEditMode()">
+      <i class="fas fa-edit"></i> Redigera
+    </button>
+  </div>
+  <div class="card-body">
+    <form id="editPriceListForm" method="POST" action="{{ url_for('update_price_list') }}">
+      <div class="table-responsive">
+        <table class="table table-hover">
+          <thead>
+            <tr>
+              <th>ProductID</th>
+              <th>Size</th>
+              <th>Price</th>
+              <th>Currency</th>
+              <th>Åtgärder</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in current_price_list %}
+            <tr>
+              <td>{{ item.ProductID }}</td>
+              <td>{{ item.Size }}</td>
+              <td>
+                <span class="price-display">{{ item.Price }}</span>
+                <input type="number" 
+                       name="price_{{ loop.index0 }}" 
+                       value="{{ item.Price }}" 
+                       class="form-control form-control-sm price-edit d-none" 
+                       step="0.01">
+              </td>
+              <td>
+                <span class="currency-display">{{ item.Currency }}</span>
+                <select name="currency_{{ loop.index0 }}" class="form-select form-select-sm currency-edit d-none">
+                  <option value="SEK" {% if item.Currency == 'SEK' %}selected{% endif %}>SEK</option>
+                  <option value="EUR" {% if item.Currency == 'EUR' %}selected{% endif %}>EUR</option>
+                  <option value="USD" {% if item.Currency == 'USD' %}selected{% endif %}>USD</option>
+                </select>
+              </td>
+              <td>
+                <input type="hidden" name="product_id_{{ loop.index0 }}" value="{{ item.ProductID }}">
+                <input type="hidden" name="size_{{ loop.index0 }}" value="{{ item.Size }}">
+                <button type="button" class="btn btn-danger btn-sm d-none delete-btn" 
+                        onclick="deleteRow(this, '{{ item.ProductID }}', '{{ item.Size }}')">
+                  <i class="fas fa-trash"></i>
+                </button>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="mt-3 d-none" id="editButtons">
+        <button type="submit" class="btn btn-success">
+          <i class="fas fa-save"></i> Spara ändringar
+        </button>
+        <button type="button" class="btn btn-secondary" onclick="toggleEditMode()">
+          <i class="fas fa-times"></i> Avbryt
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function toggleEditMode() {
+  const displays = document.querySelectorAll('.price-display, .currency-display');
+  const edits = document.querySelectorAll('.price-edit, .currency-edit, .delete-btn');
+  const editButtons = document.getElementById('editButtons');
+  
+  displays.forEach(el => el.classList.toggle('d-none'));
+  edits.forEach(el => el.classList.toggle('d-none'));
+  editButtons.classList.toggle('d-none');
+}
+
+function deleteRow(btn, productId, size) {
+  if (confirm(`Är du säker på att du vill ta bort ${productId} (${size}) från prislistan?`)) {
+    fetch('/price_lists/delete_item', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        product_id: productId,
+        size: size
+      })
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        btn.closest('tr').remove();
+      } else {
+        alert('Kunde inte ta bort produkten: ' + data.message);
+      }
+    });
+  }
+}
+</script>
+
+<style>
+.form-control-sm, .form-select-sm {
+  height: calc(1.5em + 0.5rem + 2px);
+  padding: 0.25rem 0.5rem;
+  font-size: 0.875rem;
+}
+
+.table td {
+  vertical-align: middle;
+}
+</style>
+{% endif %}
+{% endblock %}

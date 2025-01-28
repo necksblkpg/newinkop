@@ -3,14 +3,14 @@
 <h2>Skapa ny leverans</h2>
 
 <div class="alert alert-info">
-  <h5>Obligatoriska kolumner:</h5>
+  <h5>Obligatoriska kolumner i CSV:</h5>
   <ul>
-    <li><code>ProductID</code> - Produktens ID-nummer</li>
-    <li><code>Product Number</code> - Artikelnummer</li>
-    <li><code>Product Name</code> - Produktnamn</li>
-    <li><code>Supplier</code> - Leverantör</li>
-    <li><code>Size</code> - Storlek</li>
-    <li><code>Quantity to Order</code> - Antal att beställa</li>
+    <li><code>ProductID</code></li>
+    <li><code>Product Number</code></li>
+    <li><code>Product Name</code></li>
+    <li><code>Supplier</code></li>
+    <li><code>Size</code></li>
+    <li><code>Quantity to Order</code></li>
   </ul>
 </div>
 
@@ -21,8 +21,7 @@
   </div>
   <div class="mb-3">
     <label for="csv_file" class="form-label">Välj CSV-fil</label>
-    <input type="file" class="form-control" id="csv_file" name="csv_file" accept=".csv" required 
-           onchange="previewCSV(this)">
+    <input type="file" class="form-control" id="csv_file" name="csv_file" accept=".csv" required onchange="previewCSV(this)">
   </div>
   <button type="submit" class="btn btn-primary" id="submitBtn" disabled>Importera</button>
 </form>
@@ -47,20 +46,20 @@ const REQUIRED_COLUMNS = ['ProductID', 'Product Number', 'Product Name', 'Suppli
 function previewCSV(input) {
   const file = input.files[0];
   const reader = new FileReader();
-  
+
   reader.onload = function(e) {
     const text = e.target.result;
     const lines = text.split('\n');
     if (lines.length < 2) return;
-    
+
     const headers = lines[0].split(',').map(h => h.trim());
-    
+
     // Kontrollera obligatoriska kolumner
     const missingColumns = REQUIRED_COLUMNS.filter(col => !headers.includes(col));
     const missingColumnsDiv = document.getElementById('missingColumns');
     const missingColumnsList = document.getElementById('missingColumnsList');
     const submitBtn = document.getElementById('submitBtn');
-    
+
     missingColumnsList.innerHTML = '';
     if (missingColumns.length > 0) {
       missingColumns.forEach(col => {
@@ -74,17 +73,16 @@ function previewCSV(input) {
       missingColumnsDiv.style.display = 'none';
       submitBtn.disabled = false;
     }
-    
+
     // Visa preview
     const previewContainer = document.getElementById('previewContainer');
     const table = document.getElementById('previewTable');
     const thead = table.querySelector('thead');
     const tbody = table.querySelector('tbody');
-    
-    // Rensa tidigare preview
+
     thead.innerHTML = '';
     tbody.innerHTML = '';
-    
+
     // Lägg till headers
     const headerRow = document.createElement('tr');
     headers.forEach(header => {
@@ -96,25 +94,25 @@ function previewCSV(input) {
       headerRow.appendChild(th);
     });
     thead.appendChild(headerRow);
-    
+
     // Visa första 5 raderna
     const dataLines = lines.slice(1, 6);
     dataLines.forEach(line => {
       if (line.trim()) {
-        const row = document.createElement('tr');
+        const rowEl = document.createElement('tr');
         const cells = line.split(',');
         cells.forEach(cell => {
           const td = document.createElement('td');
           td.textContent = cell.trim();
-          row.appendChild(td);
+          rowEl.appendChild(td);
         });
-        tbody.appendChild(row);
+        tbody.appendChild(rowEl);
       }
     });
-    
+
     previewContainer.style.display = 'block';
   };
-  
+
   reader.readAsText(file);
 }
 </script>

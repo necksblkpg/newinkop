@@ -32,10 +32,10 @@ PRODUCT_COSTS_FILE = "product_costs.csv"
 # Konstant för prisliste-filen
 PRICE_LISTS_FILE = "price_lists.json"
 
+
 # -----------------------------------------------------------
 # 1) Snittkostnader (product_costs.csv)
 # -----------------------------------------------------------
-
 def init_data_store():
     """
     Initierar product_costs.csv om den inte finns
@@ -47,6 +47,7 @@ def init_data_store():
         logger.info("Skapade tom product_costs.csv.")
     else:
         logger.info("product_costs.csv finns redan.")
+
 
 def load_product_costs():
     if not os.path.isfile(PRODUCT_COSTS_FILE):
@@ -63,11 +64,13 @@ def load_product_costs():
         logger.error(f"Fel vid laddning av {PRODUCT_COSTS_FILE}: {str(e)}")
         return pd.DataFrame(columns=["ProductID", "AvgCost", "LastUpdated"])
 
+
 def save_product_costs(df):
     try:
         df.to_csv(PRODUCT_COSTS_FILE, index=False)
     except Exception as e:
         logger.error(f"Fel vid sparning av {PRODUCT_COSTS_FILE}: {str(e)}")
+
 
 def get_current_avg_cost(product_id):
     """Returnerar nuvarande snittkostnad för en viss product_id, annars 0."""
@@ -76,6 +79,7 @@ def get_current_avg_cost(product_id):
     if row.empty:
         return 0.0
     return float(row["AvgCost"].iloc[0])
+
 
 def update_avg_cost(product_id, new_cost):
     """
@@ -98,17 +102,17 @@ def update_avg_cost(product_id, new_cost):
 
     save_product_costs(cost_df)
 
+
 # -----------------------------------------------------------
 # 2) Funktioner för att hantera ordrar (active_orders.csv)
 # -----------------------------------------------------------
-
 def load_orders_from_file():
     """
     Läser in en fil "active_orders.csv" och stoppar i ALL_ORDERS_DF.
     Om fil saknas -> tom dataframe.
     """
     global ALL_ORDERS_DF
-    
+
     # Definiera alla kolumner som ska finnas
     required_columns = [
         "OrderDate",
@@ -126,7 +130,7 @@ def load_orders_from_file():
         "Kommentar",
         "IsActive"
     ]
-    
+
     if os.path.isfile(ACTIVE_ORDERS_FILE):
         try:
             df = pd.read_csv(ACTIVE_ORDERS_FILE, dtype={
@@ -139,15 +143,15 @@ def load_orders_from_file():
                 "Shipping": float,
                 "Customs": float,
                 "Mottagen mängd": float,
-                "IsActive": bool  # Explicit bool datatype
+                "IsActive": bool  # Explicit bool
             })
-            
+
             # Säkerställ att IsActive är boolean
             if 'IsActive' in df.columns:
                 df['IsActive'] = df['IsActive'].astype(bool)
             else:
                 df['IsActive'] = True
-            
+
             # Lägg till saknade kolumner med standardvärden
             for col in required_columns:
                 if col not in df.columns:
@@ -161,12 +165,12 @@ def load_orders_from_file():
                         df[col] = True
                     elif col == "Mottagen mängd":
                         df[col] = df["Quantity ordered"]
-            
+
             ALL_ORDERS_DF = df
             logger.info(f"Laddade ordrar från fil. Antal rader: {len(df)}")
             logger.info(f"Aktiva ordrar: {df[df['IsActive'] == True]['OrderName'].unique().tolist()}")
             logger.info(f"Inaktiva ordrar: {df[df['IsActive'] == False]['OrderName'].unique().tolist()}")
-            
+
         except Exception as e:
             logger.error(f"Kunde inte läsa {ACTIVE_ORDERS_FILE}: {str(e)}")
             ALL_ORDERS_DF = pd.DataFrame(columns=required_columns)
@@ -174,18 +178,21 @@ def load_orders_from_file():
         logger.info("Ingen active_orders.csv hittad. ALL_ORDERS_DF blir tom.")
         ALL_ORDERS_DF = pd.DataFrame(columns=required_columns)
 
+
 def save_orders_to_file():
-    """Sparar ALL_ORDERS_DF till CSV."""
-    global ALL_ORDERS_DF
+    """Sparar ALL_ORDERS_DF till fil"""
     try:
-        # Säkerställ att IsActive är boolean innan sparning
-        ALL_ORDERS_DF['IsActive'] = ALL_ORDERS_DF['IsActive'].astype(bool)
-        
+        # Konvertera numeriska kolumner till float innan sparning
+        numeric_cols = ['Mottagen mängd', 'new_price_sek', 'new_avg_cost']
+        for col in numeric_cols:
+            if col in ALL_ORDERS_DF.columns:
+                ALL_ORDERS_DF[col] = pd.to_numeric(ALL_ORDERS_DF[col], errors='coerce').fillna(0)
+
         ALL_ORDERS_DF.to_csv(ACTIVE_ORDERS_FILE, index=False)
-        logger.info("Ordrar sparade till active_orders.csv.")
-        logger.info(f"Aktiva ordrar efter sparning: {ALL_ORDERS_DF[ALL_ORDERS_DF['IsActive'] == True]['OrderName'].unique().tolist()}")
+        logger.info(f"Sparade {len(ALL_ORDERS_DF)} rader till {ACTIVE_ORDERS_FILE}")
     except Exception as e:
-        logger.error(f"Kunde inte spara ordrar: {str(e)}")
+        logger.error(f"Fel vid sparning till fil: {str(e)}")
+
 
 # -----------------------------------------------------------
 # 3) Funktioner för att hämta data via Centra (GraphQL)
@@ -209,7 +216,7 @@ def fetch_all_suppliers(api_endpoint, headers):
         data = response.json()
 
         if "errors" in data:
-            raise Exception(f"GraphQL query error: {json.dumps(data['errors'], indent=2)}")
+            raise Exception(f"GraphQL query error: {data['errors']}")
 
         fetched_suppliers = data['data']['suppliers']
         return fetched_suppliers
@@ -217,6 +224,95 @@ def fetch_all_suppliers(api_endpoint, headers):
     except Exception as e:
         logger.error(f"Fel vid hämtning av suppliers: {str(e)}")
         return None
+
+
+def fetch_collections_and_products(api_endpoint, headers):
+    """
+    1) Hämta en lista över alla collections (id, name, status).
+    2) För varje collection, hämta dess products(limit:$limit, page:$page).
+    3) Bygg en map: product_id -> set av collection-namn.
+    Returnerar ex: {"123": {"AW23", "BASICS"}, "124": {"BASICS"}} ...
+    """
+    coll_query = '''
+    query Collections {
+        collections {
+            id
+            status
+            name
+        }
+    }
+    '''
+    product_map = {}
+    try:
+        resp = requests.post(api_endpoint, json={"query": coll_query}, headers=headers)
+        resp.raise_for_status()
+        data = resp.json()
+        if "errors" in data:
+            raise Exception(f"GraphQL error i collections-listan: {data['errors']}")
+
+        all_collections = data['data']['collections']
+        if not all_collections:
+            return {}
+
+        # Hämta "products" för varje collection med paginering
+        coll_products_query = '''
+        query CollectionProducts($id:Int!, $limit:Int!, $page:Int!){
+          collection(id:$id){
+            id
+            name
+            products(limit:$limit, page:$page) {
+              id
+            }
+          }
+        }
+        '''
+        for c in all_collections:
+            c_id = c['id']
+            c_name = c['name']
+
+            # Valfritt: om du vill filtrera bort inaktiva collections:
+            # if c['status'] != "ACTIVE":
+            #     continue
+
+            page = 1
+            limit = 100
+            while True:
+                vars_ = {"id": int(c_id), "limit": limit, "page": page}
+                r2 = requests.post(api_endpoint, json={"query": coll_products_query, "variables": vars_}, headers=headers)
+                r2.raise_for_status()
+                d2 = r2.json()
+                if "errors" in d2:
+                    logger.error(f"Fel i sub-query for collection {c_id}: {d2['errors']}")
+                    break
+
+                the_collection = d2['data']['collection']
+                if not the_collection or not the_collection['products']:
+                    # Antingen ingen collection data eller inga fler products
+                    break
+
+                products_list = the_collection['products']
+                if len(products_list) == 0:
+                    # Tom list => inga fler på denna page
+                    break
+
+                # Koppla alla products i denna page till c_name
+                for p in products_list:
+                    pid = str(p['id']).strip().upper()
+                    if pid not in product_map:
+                        product_map[pid] = set()
+                    product_map[pid].add(c_name)
+
+                # Om vi fick färre än limit => sista sidan
+                if len(products_list) < limit:
+                    break
+                page += 1
+
+    except Exception as e:
+        logger.error(f"Fel vid hämtning av collections: {str(e)}")
+        return {}
+
+    return product_map
+
 
 def fetch_supplied_product_variants(api_endpoint, headers, supplier_id, products_limit=100):
     variants = []
@@ -258,7 +354,7 @@ def fetch_supplied_product_variants(api_endpoint, headers, supplier_id, products
             data = response.json()
 
             if "errors" in data:
-                raise Exception(f"GraphQL error: {json.dumps(data['errors'], indent=2)}")
+                raise Exception(f"GraphQL error: {data['errors']}")
 
             fetched_variants = data['data']['supplier']['suppliedProductVariants']
             if not fetched_variants:
@@ -275,6 +371,7 @@ def fetch_supplied_product_variants(api_endpoint, headers, supplier_id, products
             break
 
     return variants
+
 
 def fetch_all_suppliers_and_variants(api_endpoint, headers, products_limit=100):
     suppliers = fetch_all_suppliers(api_endpoint, headers)
@@ -343,6 +440,7 @@ def fetch_all_suppliers_and_variants(api_endpoint, headers, products_limit=100):
 
     return suppliers_data
 
+
 def fetch_all_product_costs(api_endpoint, headers, limit=100):
     cost_dict = {}
     page = 1
@@ -370,7 +468,7 @@ def fetch_all_product_costs(api_endpoint, headers, limit=100):
             data = response.json()
 
             if "errors" in data:
-                raise Exception(f"GraphQL error: {json.dumps(data['errors'], indent=2)}")
+                raise Exception(f"GraphQL error: {data['errors']}")
 
             products = data['data']['products']
             if not products:
@@ -396,17 +494,23 @@ def fetch_all_product_costs(api_endpoint, headers, limit=100):
 
     return cost_dict
 
+
 def fetch_all_products(api_endpoint, api_token, limit=200):
+    """
+    Hämtar först leverantörsdata (supplier), sedan lagerinfo, 
+    sedan collections -> product-map, och sätter en kolumn "Collections" i df.
+    """
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {api_token}"
     }
 
+    # (1) Hämta "supplier-data" (productID -> supplier)
     suppliers_data = fetch_all_suppliers_and_variants(api_endpoint, headers, products_limit=100)
     if suppliers_data is None:
         return None
 
-    # Hämta lagerinfo via GraphQL
+    # (2) Hämta all lagerinfo via warehouses->stock
     product_query_template = '''
     query ProductStocks($limit: Int!, $page: Int!) {
         warehouses {
@@ -441,7 +545,7 @@ def fetch_all_products(api_endpoint, api_token, limit=200):
             data = response.json()
 
             if "errors" in data:
-                raise Exception(f"GraphQL error: {json.dumps(data['errors'], indent=2)}")
+                raise Exception(f"GraphQL error: {data['errors']}")
 
             warehouses = data['data']['warehouses']
             if not warehouses:
@@ -479,27 +583,39 @@ def fetch_all_products(api_endpoint, api_token, limit=200):
 
             if len(warehouses[0].get('stock', [])) < limit:
                 break
-
             page += 1
 
         except Exception as e:
             logger.error(f"Fel vid hämtning av produktlager: {str(e)}")
             return None
 
+    # (3) Hämta cost
     cost_dict = fetch_all_product_costs(api_endpoint, headers, limit=100)
     if cost_dict is None:
         cost_dict = {}
 
+    # (4) Konvertera suppliers_data -> DataFrame
     all_product_data = list(suppliers_data.values())
     if not all_product_data:
         logger.info("Ingen produktdata hittades.")
         return pd.DataFrame()
 
     df = pd.DataFrame(all_product_data)
-    # Sätt "PurchasePrice" baserat på cost_dict
     df["PurchasePrice"] = df["ProductID"].apply(lambda pid: cost_dict.get(pid, 0.0))
     df['Stock Balance'] = pd.to_numeric(df['Stock Balance'], errors='coerce').fillna(0).astype(int)
+
+    # (5) Hämta collection->(productIDs) via fetch_collections_and_products
+    product2coll_map = fetch_collections_and_products(api_endpoint, headers)  # dict {pid: set(...)}
+
+    # (6) Lägg på kolumn "Collections"
+    def get_collections(pid):
+        cset = product2coll_map.get(pid, set())
+        return sorted(list(cset))
+
+    df["Collections"] = df["ProductID"].apply(get_collections)
+
     return df
+
 
 def fetch_sales_data(api_endpoint, headers, from_date_str, to_date_str, only_shipped=False, limit=100):
     sales_data = []
@@ -559,7 +675,7 @@ def fetch_sales_data(api_endpoint, headers, from_date_str, to_date_str, only_shi
             data = response.json()
 
             if "errors" in data:
-                raise Exception(f"GraphQL error: {json.dumps(data['errors'], indent=2)}")
+                raise Exception(f"GraphQL error: {data['errors']}")
 
             orders = data['data']['orders']
             if not orders:
@@ -595,6 +711,7 @@ def fetch_sales_data(api_endpoint, headers, from_date_str, to_date_str, only_shi
 
     return sales_data
 
+
 def process_sales_data(sales_data, from_date, to_date):
     if not sales_data:
         return pd.DataFrame(columns=["ProductID", "Size", "Quantity Sold", "Avg Daily Sales"])
@@ -605,6 +722,7 @@ def process_sales_data(sales_data, from_date, to_date):
     sales_summary["Quantity Sold"] = sales_summary["Quantity Sold"].astype(int)
     return sales_summary
 
+
 def merge_product_and_sales_data(products_df, sales_summary_df):
     if products_df.empty:
         return pd.DataFrame()
@@ -612,6 +730,7 @@ def merge_product_and_sales_data(products_df, sales_summary_df):
     merged_df['Quantity Sold'] = merged_df['Quantity Sold'].fillna(0).astype(int)
     merged_df['Avg Daily Sales'] = merged_df['Avg Daily Sales'].fillna(0).astype(float).round(1)
     return merged_df
+
 
 def calculate_reorder_metrics(df, lead_time, safety_stock):
     if df.empty:
@@ -621,6 +740,7 @@ def calculate_reorder_metrics(df, lead_time, safety_stock):
     df["Quantity to Order"] = df["Quantity to Order"].apply(lambda x: max(x, 0))
     df["Need to Order"] = df["Quantity to Order"].apply(lambda x: "Yes" if x > 0 else "No")
     return df
+
 
 def fetch_all_products_with_sales(api_endpoint,
                                   api_token,
@@ -666,36 +786,30 @@ def fetch_all_products_with_sales(api_endpoint,
     merged_df = add_incoming_stock_columns(merged_df)
     return merged_df
 
+
 def add_incoming_stock_columns(df):
     """
-    Skapar kolumner:
-      - 'Incoming Qty'
-      - 'Stock + Incoming'
-    utifrån ALL_ORDERS_DF (där IsActive == True).
+    Lägger till kolumner för inkommande lager och totalt värde.
     """
-    global ALL_ORDERS_DF
-    active_orders = ALL_ORDERS_DF[ALL_ORDERS_DF['IsActive'] == True]
-    if active_orders.empty:
-        df['Incoming Qty'] = 0
-        df['Stock + Incoming'] = df['Stock Balance']
-        return df
-
-    incoming_df = (
-        active_orders
-        .groupby(['ProductID', 'Size'], as_index=False)['Quantity ordered']
-        .sum()
-        .rename(columns={'Quantity ordered': 'Incoming Qty'})
-    )
-
-    out = pd.merge(df, incoming_df, on=['ProductID', 'Size'], how='left')
+    out = df.copy()
+    
+    # Initiera nya kolumner om de inte finns
+    if 'Incoming Qty' not in out.columns:
+        out['Incoming Qty'] = 0
+    
+    if 'Incoming Value' not in out.columns:
+        out['Incoming Value'] = 0.0
+        
+    # Konvertera till rätt datatyper
     out['Incoming Qty'] = out['Incoming Qty'].fillna(0).astype(int)
-    out['Stock + Incoming'] = out['Stock Balance'] + out['Incoming Qty']
+    out['Incoming Value'] = out['Incoming Value'].fillna(0.0).astype(float)
+    
     return out
+
 
 # -----------------------------------------------------------
 # 4) Leverans-funktioner
 # -----------------------------------------------------------
-
 def create_new_delivery(order_name, products_df):
     """
     Skapar en ny leverans (order) och lägger till i ALL_ORDERS_DF.
@@ -743,150 +857,127 @@ def create_new_delivery(order_name, products_df):
     save_orders_to_file()
     return True
 
+
 def cancel_delivery(order_name):
+    """Makulerar en leverans genom att ta bort den från aktiva ordrar."""
     global ALL_ORDERS_DF
-    mask = ALL_ORDERS_DF['OrderName'] == order_name
-    # Ta bort raderna
-    ALL_ORDERS_DF = ALL_ORDERS_DF[~mask]
-    save_orders_to_file()
-    # Uppdatera ev. stats_df om den finns
-    from data import DATAFRAME_CACHE
-    df = DATAFRAME_CACHE.get("stats_df")
-    if df is not None:
-        df = add_incoming_stock_columns(df)
-        DATAFRAME_CACHE["stats_df"] = df
-
-def handle_delivery_completion(delivery_df, api_endpoint=None, api_token=None):
-    """
-    När en leverans mottas:
-    1. Uppdatera IsActive=False i ALL_ORDERS_DF
-    2. Beräkna nya PurchasePrice baserat på mottagna kvantiteter
-    3. Uppdatera lagersaldo i stats_df (om finns)
-    """
-    global ALL_ORDERS_DF
-    order_name = str(delivery_df['OrderName'].iloc[0])
-    logger.info(f"Hanterar leveransmottagning för: {order_name}")
-
+    
     try:
-        # Först, hitta alla rader för denna order och sätt IsActive till False
-        order_mask = ALL_ORDERS_DF['OrderName'].astype(str) == order_name
-        ALL_ORDERS_DF.loc[order_mask, 'IsActive'] = False
-        logger.info(f"Satte IsActive=False för alla rader i order {order_name}")
-
-        # Säkerställ att kolumnerna finns
-        new_columns = ['Mottagen mängd', 'Price', 'Currency', 
-                      'Exchange rate', 'Shipping', 'Customs',
-                      'new_price_sek', 'new_avg_cost']
-        for col in new_columns:
-            if col not in ALL_ORDERS_DF.columns:
-                ALL_ORDERS_DF[col] = None
-
-        # Uppdatera den befintliga ordern med mottagna värden
-        for _, row in delivery_df.iterrows():
-            product_mask = (ALL_ORDERS_DF['OrderName'].astype(str) == order_name) & \
-                          (ALL_ORDERS_DF['ProductID'].astype(str) == str(row['ProductID'])) & \
-                          (ALL_ORDERS_DF['Size'].astype(str) == str(row['Size']))
+        logger.info(f"Försöker makulera leverans: {order_name}")
+        
+        # Hitta alla rader för denna order
+        order_mask = ALL_ORDERS_DF['OrderName'].astype(str) == str(order_name)
+        
+        if not any(order_mask):
+            logger.warning(f"Hittade ingen leverans med namn: {order_name}")
+            return False
             
-            if not any(product_mask):
-                logger.error(f"Kunde inte hitta matchande rad för {row['ProductID']} {row['Size']}")
-                continue
-            
-            # Uppdatera alla värden
-            update_columns = {
-                'Mottagen mängd': row['Mottagen mängd'],
-                'Price': row['Price'],
-                'Currency': row['Currency'],
-                'Exchange rate': row['Exchange rate'],
-                'Shipping': row['Shipping'],
-                'Customs': row['Customs'],
-                'new_price_sek': row.get('new_price_sek', 0),
-                'new_avg_cost': row.get('new_avg_cost', 0)
-            }
-            
-            for col, value in update_columns.items():
-                ALL_ORDERS_DF.loc[product_mask, col] = value
-                
-            logger.info(f"Uppdaterade värden för {row['ProductID']} {row['Size']}")
-
-        # Verifiera att IsActive är False och visa alla värden för debugging
-        debug_df = ALL_ORDERS_DF[order_mask].copy()
-        logger.info(f"Debug - Order {order_name} efter uppdatering:")
-        logger.info(f"IsActive värden: {debug_df['IsActive'].tolist()}")
-        logger.info(f"OrderName värden: {debug_df['OrderName'].tolist()}")
-
-        # Spara ändringar till fil
+        # Ta bort rader för denna order
+        ALL_ORDERS_DF = ALL_ORDERS_DF[~order_mask]
+        
+        # Spara ändringar
         save_orders_to_file()
         
-        # Verifiera efter sparning
-        ALL_ORDERS_DF = pd.read_csv(ACTIVE_ORDERS_FILE)
-        verify_df = ALL_ORDERS_DF[ALL_ORDERS_DF['OrderName'].astype(str) == order_name]
-        logger.info(f"Verifiering efter sparning - IsActive värden för order {order_name}: {verify_df['IsActive'].tolist()}")
-
+        logger.info(f"Leverans {order_name} makulerad")
+        return True
+        
     except Exception as e:
-        logger.error(f"Fel i handle_delivery_completion: {str(e)}")
+        logger.error(f"Fel vid makulering av leverans: {str(e)}")
         raise e
+
+
+def handle_delivery_completion(delivery_df):
+    """
+    Hanterar färdigställande av en leverans.
+    """
+    global ALL_ORDERS_DF
+    
+    try:
+        order_name = delivery_df['OrderName'].iloc[0]
+        logger.info(f"Hanterar färdigställande av leverans: {order_name}")
+        
+        # Hitta alla rader för denna leverans
+        order_mask = ALL_ORDERS_DF['OrderName'].astype(str) == str(order_name)
+        
+        # Uppdatera IsActive till False för alla rader i leveransen
+        ALL_ORDERS_DF.loc[order_mask, 'IsActive'] = False
+        
+        # Uppdatera mottagen mängd och nytt snitt
+        for _, row in delivery_df.iterrows():
+            row_mask = (ALL_ORDERS_DF['OrderName'].astype(str) == str(order_name)) & \
+                      (ALL_ORDERS_DF['ProductID'].astype(str) == str(row['ProductID'])) & \
+                      (ALL_ORDERS_DF['Size'].astype(str) == str(row['Size']))
+            
+            ALL_ORDERS_DF.loc[row_mask, 'Mottagen mängd'] = row['Mottagen mängd']
+            ALL_ORDERS_DF.loc[row_mask, 'new_avg_cost'] = row['new_avg_cost']
+        
+        # Spara ändringar till fil
+        save_orders_to_file()
+        logger.info(f"Leverans {order_name} markerad som inaktiv och sparad")
+        return True
+        
+    except Exception as e:
+        logger.error(f"Fel vid färdigställande av leverans: {str(e)}")
+        return False
+
 
 def get_active_deliveries_summary():
     """
     Returnerar en sammanfattning av aktiva leveranser.
     """
     global ALL_ORDERS_DF
-    
+
     if ALL_ORDERS_DF.empty:
         return []
-    
-    # Filtrera först på IsActive == True
+
     active = ALL_ORDERS_DF[ALL_ORDERS_DF['IsActive'] == True].copy()
-    
+
     if active.empty:
         return []
 
-    # Gruppera per OrderName och beräkna summor
     grouped = active.groupby("OrderName").agg({
         "OrderDate": "first",
         "Quantity ordered": "sum",
         "ProductID": "count"
     }).reset_index()
-    
-    # Byt namn på kolumnerna för tydlighet
+
     grouped.rename(columns={
         "Quantity ordered": "QuantitySum",
         "ProductID": "ProductCount"
     }, inplace=True)
-    
+
     logger.info(f"Aktiva leveranser: {grouped['OrderName'].tolist()}")
     return grouped.to_dict(orient="records")
+
 
 def get_completed_deliveries_summary():
     """
     Returnerar en sammanfattning av avklarade leveranser.
     """
     global ALL_ORDERS_DF
-    
+
     if ALL_ORDERS_DF.empty:
         return []
-    
-    # Filtrera först på IsActive == False
+
     completed = ALL_ORDERS_DF[ALL_ORDERS_DF['IsActive'] == False].copy()
-    
+
     if completed.empty:
         return []
 
-    # Gruppera per OrderName och beräkna summor
     grouped = completed.groupby("OrderName").agg({
         "OrderDate": "first",
         "Quantity ordered": "sum",
         "ProductID": "count"
     }).reset_index()
-    
-    # Byt namn på kolumnerna för tydlighet
+
     grouped.rename(columns={
         "Quantity ordered": "QuantitySum",
         "ProductID": "ProductCount"
     }, inplace=True)
-    
+
     logger.info(f"Avklarade leveranser: {grouped['OrderName'].tolist()}")
     return grouped.to_dict(orient="records")
+
 
 def get_delivery_details(order_name, only_active=False):
     """
@@ -894,28 +985,25 @@ def get_delivery_details(order_name, only_active=False):
     Om only_active=True, returnera bara aktiva leveranser.
     """
     global ALL_ORDERS_DF
-    
-    # Konvertera order_name till string för säkerhets skull
+
     order_name = str(order_name)
-    
     logger.info(f"Hämtar leveransdetaljer för: '{order_name}'")
-    
-    # Skapa mask för order_name
+
     order_mask = ALL_ORDERS_DF['OrderName'].astype(str) == order_name
-    
-    # Om only_active är True, lägg till IsActive i masken
+
     if only_active:
         order_mask = order_mask & (ALL_ORDERS_DF['IsActive'] == True)
-    
+
     df = ALL_ORDERS_DF[order_mask].copy()
-    
+
     if df.empty:
         logger.warning(f"Inga detaljer hittades för leverans: '{order_name}'")
     else:
         logger.info(f"Hittade {len(df)} rader för leverans '{order_name}'")
         logger.info(f"IsActive status: {df['IsActive'].tolist()}")
-    
+
     return df if not df.empty else None
+
 
 def verify_active_delivery(order_name):
     """
@@ -923,26 +1011,24 @@ def verify_active_delivery(order_name):
     Returnerar True/False och eventuellt felmeddelande.
     """
     global ALL_ORDERS_DF
-    
-    # Konvertera order_name till string för säkerhets skull
+
     order_name = str(order_name)
-    
+
     logger.info(f"Verifierar leverans: '{order_name}'")
     logger.info(f"Alla OrderNames i systemet: {ALL_ORDERS_DF['OrderName'].unique().tolist()}")
-    
-    # Kontrollera om leveransen finns överhuvudtaget
+
     if not any(ALL_ORDERS_DF['OrderName'].astype(str) == order_name):
         logger.warning(f"Leverans '{order_name}' hittades inte i systemet")
         return False, "Leveransen hittades inte i systemet"
-        
-    # Kontrollera om leveransen är aktiv
+
     active_mask = (ALL_ORDERS_DF['OrderName'].astype(str) == order_name) & (ALL_ORDERS_DF['IsActive'] == True)
     if not any(active_mask):
         logger.warning(f"Leverans '{order_name}' finns men är inte aktiv")
         return False, "Leveransen finns men är inte längre aktiv"
-    
+
     logger.info(f"Leverans '{order_name}' verifierad och aktiv")
     return True, None
+
 
 def calculate_new_purchase_price(product_id, size, current_stock, current_price, received_qty, new_price):
     """
@@ -952,33 +1038,32 @@ def calculate_new_purchase_price(product_id, size, current_stock, current_price,
     """
     if current_stock <= 0:
         return new_price
-        
+
     total_qty = current_stock + received_qty
     if total_qty <= 0:
         return current_price
-        
+
     weighted_price = ((current_stock * current_price) + (received_qty * new_price)) / total_qty
     return round(weighted_price, 2)
+
 
 def get_current_stock_from_centra(api_endpoint, api_token, product_id, size):
     """
     Hämtar aktuellt lagersaldo från Centra för en specifik produkt och storlek
     """
     logger.info(f"Försöker hämta lager för produkt: {product_id}, storlek: {size}")
-    
+
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {api_token}"
     }
-    
-    # Konvertera product_id till int och ta bort eventuella mellanslag
+
     try:
         product_id_int = int(product_id.strip())
     except (ValueError, AttributeError):
         logger.error(f"Ogiltigt product_id format: {product_id}")
         return 0
-    
-    # Uppdaterad query som tar emot en array av produkt-ID:n
+
     stock_query = '''
     query ProductStocks($productId: [Int!]!) {
         warehouses {
@@ -999,35 +1084,31 @@ def get_current_stock_from_centra(api_endpoint, api_token, product_id, size):
         }
     }
     '''
-    
+
     try:
-        # Skicka produkt-ID som en array
         variables = {"productId": [product_id_int]}
         logger.info(f"Skickar GraphQL-query med variabler: {variables}")
-        
+
         response = requests.post(
             api_endpoint,
-            json={
-                "query": stock_query, 
-                "variables": variables
-            },
+            json={"query": stock_query, "variables": variables},
             headers=headers
         )
-        
+
         if not response.ok:
             logger.error(f"API svarade med status {response.status_code}: {response.text}")
             return 0
-            
+
         data = response.json()
         logger.info(f"API svar för produkt {product_id}: {data}")
-        
+
         if "errors" in data:
             logger.error(f"GraphQL error för produkt {product_id}: {data['errors']}")
             return 0
-            
+
         total_quantity = 0
         warehouses = data.get('data', {}).get('warehouses', [])
-        
+
         for warehouse in warehouses:
             stock_entries = warehouse.get('stock', [])
             for stock in stock_entries:
@@ -1037,17 +1118,18 @@ def get_current_stock_from_centra(api_endpoint, api_token, product_id, size):
                     quantity = product_size.get('quantity', 0)
                     total_quantity += quantity
                     logger.info(f"Hittade {quantity} st för produkt {product_id} storlek {size}")
-        
+
         if total_quantity == 0:
             logger.warning(f"Ingen matchande storlek '{size}' hittad för produkt {product_id}")
         else:
             logger.info(f"Totalt lagersaldo för produkt {product_id} storlek {size}: {total_quantity}")
-            
+
         return total_quantity
-        
+
     except Exception as e:
         logger.error(f"Fel vid hämtning av lagersaldo för produkt {product_id}: {str(e)}")
         return 0
+
 
 def test_stock_query(api_endpoint, api_token, product_id, size):
     """
@@ -1057,50 +1139,50 @@ def test_stock_query(api_endpoint, api_token, product_id, size):
     logger.info(f"API Endpoint: {api_endpoint}")
     logger.info(f"Product ID: {product_id}")
     logger.info(f"Size: {size}")
-    
+
     stock = get_current_stock_from_centra(api_endpoint, api_token, product_id, size)
     logger.info(f"Resultat: {stock}")
     logger.info("=== TEST SLUT ===")
     return stock
+
 
 def get_price_lists():
     """Hämta alla aktiva prislistor"""
     try:
         if not os.path.exists(PRICE_LISTS_FILE):
             return []
-            
+
         with open(PRICE_LISTS_FILE, 'r', encoding='utf-8') as f:
             return json.load(f)
     except Exception as e:
         logger.error(f"Fel vid läsning av prislistor: {str(e)}")
         return []
 
+
 def save_price_list(df):
     """Spara en ny prislista"""
     try:
-        # Validera att alla krävda kolumner finns
         required_columns = ['ProductID', 'Size', 'Price', 'Currency']
         missing_columns = [col for col in required_columns if col not in df.columns]
         if missing_columns:
             raise ValueError(f"Saknade kolumner i CSV: {', '.join(missing_columns)}")
-        
-        # Konvertera kolumner till rätt format
+
         df['ProductID'] = df['ProductID'].astype(str)
         df['Size'] = df['Size'].astype(str)
         df['Price'] = df['Price'].astype(float)
         df['Currency'] = df['Currency'].astype(str)
-        
+
         logger.info(f"Sparar prislista med följande data:")
         logger.info(df.to_string())
-        
-        # Spara direkt till fil, ersätt befintlig
+
         df[required_columns].to_csv(PRICE_LISTS_FILE, index=False)
-        
+
         logger.info(f"Sparade prislista med {len(df)} produkter")
-        
+
     except Exception as e:
         logger.error(f"Fel vid sparande av prislista: {str(e)}")
         raise
+
 
 def find_price_in_list(product_id, product_number, size):
     """Hitta pris för en produkt i prislistan"""
@@ -1108,18 +1190,17 @@ def find_price_in_list(product_id, product_number, size):
         if not os.path.exists(PRICE_LISTS_FILE):
             logger.warning("Ingen prislista finns")
             return None
-            
+
         df = pd.read_csv(PRICE_LISTS_FILE)
         logger.info(f"Söker efter ProductID={product_id}, Size={size}")
         logger.info("Prislista innehåll:")
         logger.info(df.to_string())
-        
-        # Sök efter produkten
+
         mask = (df['ProductID'].astype(str) == str(product_id)) & \
                (df['Size'].astype(str) == str(size))
-        
+
         logger.info(f"Antal matchande rader: {mask.sum()}")
-        
+
         if any(mask):
             row = df[mask].iloc[0]
             logger.info(f"Hittade matchande rad: {row.to_dict()}")
@@ -1127,26 +1208,28 @@ def find_price_in_list(product_id, product_number, size):
                 'price': float(row['Price']),
                 'currency': row['Currency']
             }
-        
+
         logger.warning(f"Ingen produkt hittad för {product_id} {size}")
         return None
-            
+
     except Exception as e:
         logger.error(f"Fel vid sökning i prislista: {str(e)}")
         return None
+
 
 def delete_price_list(supplier):
     """Ta bort en prislista"""
     try:
         price_lists = get_price_lists()
         price_lists = [pl for pl in price_lists if pl['supplier'] != supplier]
-        
+
         with open(PRICE_LISTS_FILE, 'w', encoding='utf-8') as f:
             json.dump(price_lists, f, ensure_ascii=False, indent=2)
-            
+
         logger.info(f"Tog bort prislista för {supplier}")
         return True
-        
+
     except Exception as e:
         logger.error(f"Fel vid borttagning av prislista: {str(e)}")
         return False
+

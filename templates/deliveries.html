@@ -8,23 +8,24 @@
 
 <h4>Väntande leveranser</h4>
 {% if active_orders %}
-  <ul class="list-group">
+  <ul class="list-group mb-4">
     {% for row in active_orders %}
-      <li class="list-group-item">
-        <div class="d-flex justify-content-between">
-          <div>
-            <strong>{{ row.OrderName }}</strong><br>
-            Datum: {{ row.OrderDate }}<br>
-            Produkter: {{ row.ProductCount }} (Totalt {{ row.QuantitySum }} st)
-          </div>
-          <div>
-            <a href="{{ url_for('deliveries_view', order_name=row.OrderName) }}" 
-               class="btn btn-sm btn-info">Visa detaljer</a>
-            <a href="{{ url_for('deliveries_process', order_name=row.OrderName|string|urlencode) }}" 
-               class="btn btn-sm btn-success" title="Ta emot">Ta emot</a>
-            <a href="{{ url_for('deliveries_cancel', order_name=row.OrderName) }}" 
-               class="btn btn-sm btn-danger" title="Makulera">Makulera</a>
-          </div>
+      <li class="list-group-item d-flex justify-content-between align-items-center">
+        <div>
+          <strong>{{ row.OrderName }}</strong><br>
+          <small class="text-muted">Datum: {{ row.OrderDate }}</small><br>
+          <small class="text-muted">Produkter: {{ row.ProductCount }} (Totalt {{ row.QuantitySum }} st)</small>
+        </div>
+        <div>
+          <a href="{{ url_for('deliveries_view', order_name=row.OrderName) }}" class="btn btn-sm btn-info me-1">
+            Visa detaljer
+          </a>
+          <a href="{{ url_for('deliveries_process', order_name=row.OrderName|string|urlencode) }}" class="btn btn-sm btn-success me-1">
+            Ta emot
+          </a>
+          <a href="{{ url_for('deliveries_cancel', order_name=row.OrderName) }}" class="btn btn-sm btn-danger">
+            Makulera
+          </a>
         </div>
       </li>
     {% endfor %}
@@ -37,34 +38,31 @@
 
 <h4>
   Avklarade leveranser 
-  <button class="btn btn-sm btn-outline-secondary" type="button" 
-          data-bs-toggle="collapse" data-bs-target="#completedOrders">
+  <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#completedOrders">
     Visa/Dölj
   </button>
 </h4>
 
-<div class="collapse" id="completedOrders">
+<div class="collapse mt-3" id="completedOrders">
   {% if completed_orders %}
     <ul class="list-group">
       {% for row in completed_orders %}
-        <li class="list-group-item">
-          <div class="d-flex justify-content-between">
-            <div>
-              <strong>{{ row.OrderName }}</strong><br>
-              Datum: {{ row.OrderDate }}<br>
-              Produkter: {{ row.ProductCount }} (Totalt {{ row.QuantitySum }} st)
-            </div>
-            <div>
-              <form action="{{ url_for('deliveries_reactivate', order_name=row.OrderName) }}" 
-                    method="POST" style="display: inline;">
-                <button type="submit" class="btn btn-sm btn-warning" 
-                        onclick="return confirm('Är du säker på att du vill återaktivera denna leverans?')">
-                  Återaktivera
-                </button>
-              </form>
-              <a href="{{ url_for('deliveries_view', order_name=row.OrderName) }}" 
-                 class="btn btn-sm btn-info">Visa detaljer</a>
-            </div>
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+          <div>
+            <strong>{{ row.OrderName }}</strong><br>
+            <small class="text-muted">Datum: {{ row.OrderDate }}</small><br>
+            <small class="text-muted">Produkter: {{ row.ProductCount }} (Totalt {{ row.QuantitySum }} st)</small>
+          </div>
+          <div>
+            <form action="{{ url_for('deliveries_reactivate', order_name=row.OrderName) }}" method="POST" class="d-inline">
+              <button type="submit" class="btn btn-sm btn-warning me-1" 
+                      onclick="return confirm('Är du säker på att du vill återaktivera denna leverans?')">
+                Återaktivera
+              </button>
+            </form>
+            <a href="{{ url_for('deliveries_view', order_name=row.OrderName) }}" class="btn btn-sm btn-info">
+              Visa detaljer
+            </a>
           </div>
         </li>
       {% endfor %}
@@ -73,7 +71,4 @@
     <p><em>Inga avklarade leveranser.</em></p>
   {% endif %}
 </div>
-
-<!-- Lägg till Bootstrap JS för collapse-funktionalitet -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 {% endblock %}

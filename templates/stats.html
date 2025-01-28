@@ -1,43 +1,16 @@
 {% extends "base.html" %}
 {% block content %}
-<!-- Lägg till CSS för laddningsindikatorn -->
-<style>
-  .loading-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(255, 255, 255, 0.8);
-    display: none;
-    justify-content: center;
-    align-items: center;
-    z-index: 1000;
-  }
-  
-  .loading-spinner {
-    width: 50px;
-    height: 50px;
-    border: 5px solid #f3f3f3;
-    border-top: 5px solid #3498db;
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-  }
-  
-  @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-  }
-</style>
 
 <h2>Statistik & Översikt</h2>
 
-<!-- Lägg till laddningsindikator -->
-<div id="loadingOverlay" class="loading-overlay">
-  <div class="loading-content text-center">
-    <div class="loading-spinner mb-3"></div>
-    <h4>Hämtar data...</h4>
-    <p>Detta kan ta några sekunder</p>
+<div id="loadingOverlay" class="d-none">
+  <div class="loading-backdrop"></div>
+  <div class="loading-content">
+    <div class="spinner-border text-primary mb-3" role="status" style="width: 3rem; height: 3rem;">
+      <span class="visually-hidden">Loading...</span>
+    </div>
+    <h4 class="text-primary mb-2">Hämtar och bearbetar data från Centra</h4>
+    <p class="text-muted">Detta kan ta upp till en minut beroende på mängden data...</p>
   </div>
 </div>
 
@@ -58,6 +31,52 @@
     <label for="safety_stock" class="form-label">Säkerhetslager</label>
     <input type="number" class="form-control" id="safety_stock" name="safety_stock" value="{{ safety_stock }}">
   </div>
+
+  <div class="col-12">
+    <div class="card p-3 mb-3">
+      <h5 class="mb-2">Välj leverantörer</h5>
+      {% if suppliers %}
+        <div class="row">
+          {% for sup in suppliers %}
+          <div class="col-md-3 mb-1">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" 
+                     id="supplier_{{ loop.index }}" name="suppliers" 
+                     value="{{ sup }}" {% if sup in selected_suppliers %}checked{% endif %}>
+              <label class="form-check-label" for="supplier_{{ loop.index }}">
+                {{ sup }}
+              </label>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="text-muted">Inga leverantörer att välja (API kanske saknas?)</p>
+      {% endif %}
+    </div>
+    <div class="card p-3 mb-3">
+      <h5 class="mb-2">Välj collections</h5>
+      {% if collections %}
+        <div class="row">
+          {% for coll in collections %}
+          <div class="col-md-3 mb-1">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox"
+                     id="collection_{{ loop.index }}" name="collections"
+                     value="{{ coll }}" {% if coll in selected_collections %}checked{% endif %}>
+              <label class="form-check-label" for="collection_{{ loop.index }}">
+                {{ coll }}
+              </label>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="text-muted">Inga collections att välja (API kanske saknas?)</p>
+      {% endif %}
+    </div>
+  </div>
+
   <div class="col-12">
     <input type="checkbox" id="active_filter" name="active_filter" {% if active_filter %}checked{% endif %}>
     <label for="active_filter">Endast aktiva produkter</label>
@@ -65,107 +84,79 @@
     <input type="checkbox" id="bundle_filter" name="bundle_filter" {% if bundle_filter %}checked{% endif %}>
     <label for="bundle_filter">Exkludera bundles</label>
 
-    <input type="checkbox" id="exclude_supplier" name="exclude_supplier" {% if exclude_supplier %}checked{% endif %}>
-    <label for="exclude_supplier">Exkludera 'Utgående produkt'</label>
-
     <input type="checkbox" id="shipped_filter" name="shipped_filter" {% if shipped_filter %}checked{% endif %}>
     <label for="shipped_filter">Endast SHIPPED ordrar</label>
   </div>
-  <div class="col-12">
+  <div class="col-12 mt-2">
     <button type="submit" class="btn btn-primary">Hämta data</button>
   </div>
 </form>
 
-<hr>
-
-<!-- Uppdatera informationsrutan -->
-<div class="alert alert-info" role="alert">
-  <h5>Förklaring av beräknade värden:</h5>
-  
-  <p><strong>Reorder Level</strong> - När lagret når denna nivå bör du beställa mer. Beräknas som:<br>
-  <code>Genomsnittlig försäljning per dag × Leveranstid + Säkerhetslager</code></p>
-  
-  <p><strong>Quantity to Order</strong> - Rekommenderad beställningsmängd. Beräknas som:<br>
-  <code>Reorder Level - Nuvarande lagersaldo</code><br>
-  Om detta värde är positivt betyder det att du bör beställa denna mängd.</p>
-
-  <hr>
-  <p class="mb-0">
-    <i class="fas fa-lightbulb"></i> <strong>Tips:</strong> 
-    När du skapar nya ordrar kan du använda <code>Quantity to Order</code> som utgångspunkt. 
-    Denna siffra är en rekommendation och kan justeras efter behov innan du skapar ordern.
-    För att skapa en order, exportera data till Google Sheets, justera kvantiteterna och använd CSV-filen för att skapa en ny leverans.
-  </p>
-</div>
+<hr class="my-4">
 
 {% if df_table %}
-<h3>Resultat: (Visar de 3 första raderna)</h3>
+<a href="#" onclick="openGoogleSheets()" class="btn btn-outline-success mb-4">
+  <i class="fas fa-table"></i> Se all data i Google Sheets
+</a>
+
+<h3>Resultat (visar de 3 första raderna)</h3>
 <div class="table-responsive">
   {{ preview_table|safe }}
 </div>
-
-<p class="text-muted">
-  Totalt antal rader i datasetet: {{ total_rows }}
-</p>
-
-<a href="#" onclick="openGoogleSheets()" class="btn btn-outline-success">
-  <i class="fas fa-table"></i> Se all data i Google Sheets
-</a>
+<p class="text-muted">Totalt antal rader i datasetet: {{ total_rows }}</p>
 {% endif %}
 
-<hr>
-<h4>
-  Aktiva ordrar 
-  <button class="btn btn-sm btn-outline-secondary" type="button" 
-          data-bs-toggle="collapse" data-bs-target="#activeOrders">
-    Visa/Dölj
-  </button>
-</h4>
+<style>
+.loading-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(5px);
+  z-index: 9998;
+}
 
-<div class="collapse" id="activeOrders">
-  {% if active_orders %}
-    <div class="table-responsive">
-      <table class="table table-striped table-hover">
-        <thead>
-          <tr>
-            <th>Ordernummer</th>
-            <th>Datum</th>
-            <th>Antal produkter</th>
-            <th>Total kvantitet</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for order in active_orders %}
-            <tr>
-              <td>{{ order.OrderName }}</td>
-              <td>{{ order.OrderDate }}</td>
-              <td>{{ order.ProductCount }}</td>
-              <td>{{ order.QuantitySum }}</td>
-            </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  {% else %}
-    <p><em>Inga aktiva ordrar.</em></p>
-  {% endif %}
-</div>
+.loading-content {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: white;
+  padding: 2rem 3rem;
+  border-radius: 10px;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
+  z-index: 9999;
+  text-align: center;
+}
 
-<!-- Lägg till JavaScript för att hantera laddningsindikatorn -->
+#loadingOverlay.d-none {
+  display: none !important;
+}
+
+#loadingOverlay:not(.d-none) {
+  display: block;
+}
+</style>
+
 <script>
 document.getElementById('statsForm').addEventListener('submit', function() {
-  document.getElementById('loadingOverlay').style.display = 'flex';
+  document.getElementById('loadingOverlay').classList.remove('d-none');
+  document.querySelector('.loading-content h4').textContent = 'Hämtar och bearbetar försäljningsdata';
+  document.querySelector('.loading-content p').textContent = 'Detta kan ta någon minut då stora mängder data bearbetas...';
+  this.querySelector('button[type="submit"]').disabled = true;
 });
 
 function openGoogleSheets() {
-  document.getElementById('loadingOverlay').style.display = 'flex';
-  
-  fetch("{{ url_for('stats_push_to_sheets') }}", {
-    method: 'POST'
-  })
+  document.getElementById('loadingOverlay').classList.remove('d-none');
+  document.querySelector('.loading-content h4').textContent = 'Exporterar till Google Sheets';
+  document.querySelector('.loading-content p').textContent = 'Skapar nytt kalkylark...';
+
+  fetch("{{ url_for('stats_push_to_sheets') }}", {method: 'POST'})
   .then(response => response.json())
   .then(data => {
-    document.getElementById('loadingOverlay').style.display = 'none';
+    document.getElementById('loadingOverlay').classList.add('d-none');
     if (data.sheet_url) {
       window.open(data.sheet_url, '_blank');
     } else {
@@ -173,7 +164,7 @@ function openGoogleSheets() {
     }
   })
   .catch(error => {
-    document.getElementById('loadingOverlay').style.display = 'none';
+    document.getElementById('loadingOverlay').classList.add('d-none');
     alert('Ett fel uppstod: ' + error);
   });
 }
