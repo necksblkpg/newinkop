@@ -789,20 +789,34 @@ def fetch_all_products_with_sales(api_endpoint,
 
 def add_incoming_stock_columns(df):
     """
-    Lägger till kolumner för inkommande lager och totalt värde.
+    Lägger till kolumn för inkommande lager.
+    Summerar kvantiteter från aktiva ordrar.
     """
     out = df.copy()
     
-    # Initiera nya kolumner om de inte finns
+    # Initiera Incoming Qty kolumn om den inte finns
     if 'Incoming Qty' not in out.columns:
         out['Incoming Qty'] = 0
     
-    if 'Incoming Value' not in out.columns:
-        out['Incoming Value'] = 0.0
+    # Ta bort Incoming Value om den finns
+    if 'Incoming Value' in out.columns:
+        out = out.drop(columns=['Incoming Value'])
+    
+    # Hämta aktiva ordrar
+    active_orders = ALL_ORDERS_DF[ALL_ORDERS_DF['IsActive'] == True].copy()
+    
+    if not active_orders.empty:
+        # Gruppera efter ProductID och Size, summera Quantity ordered
+        incoming = active_orders.groupby(['ProductID', 'Size'])['Quantity ordered'].sum().reset_index()
         
-    # Konvertera till rätt datatyper
+        # Uppdatera Incoming Qty för matchande produkter
+        for _, row in incoming.iterrows():
+            mask = (out['ProductID'].astype(str) == str(row['ProductID'])) & \
+                  (out['Size'].astype(str) == str(row['Size']))
+            out.loc[mask, 'Incoming Qty'] = row['Quantity ordered']
+    
+    # Konvertera till rätt datatyp
     out['Incoming Qty'] = out['Incoming Qty'].fillna(0).astype(int)
-    out['Incoming Value'] = out['Incoming Value'].fillna(0.0).astype(float)
     
     return out
 
