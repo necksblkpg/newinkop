@@ -7,6 +7,14 @@ import pandas as pd
 from datetime import datetime, timedelta
 import io
 import csv
+from google_auth_oauthlib.flow import Flow
+from google.oauth2 import id_token
+from google.auth.transport import requests
+from functools import wraps
+from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+
+# Tillåt OAuth över HTTP för utveckling
+os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 
 from data import (
     init_data_store,
@@ -32,29 +40,150 @@ from data import (
 )
 from sheets import push_to_google_sheets
 
-app = Flask(__name__)
-app.secret_key = "hemlig-nyckel"
-
+# Konfigurera loggning
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
+logger = logging.getLogger(__name__)
+
+app = Flask(__name__)
+app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'default-secret-key')
+
+# Google OAuth2 konfiguration
+CLIENT_SECRETS_FILE = "client_secret.json"
+SCOPES = ['https://www.googleapis.com/auth/userinfo.profile',
+          'https://www.googleapis.com/auth/userinfo.email',
+          'openid']
+
+# Flask-Login konfiguration
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'login'
+login_manager.login_message = "Du måste logga in för att komma åt denna sida."
+login_manager.login_message_category = "warning"
+
+# User class för Flask-Login
+class User(UserMixin):
+    def __init__(self, user_id, email, name):
+        self.id = user_id
+        self.email = email
+        self.name = name
+
+@login_manager.user_loader
+def load_user(user_id):
+    if 'google_id' not in session:
+        return None
+    return User(session['google_id'], session['email'], session['name'])
+
+def login_required_custom(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'google_id' not in session:
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
 
 def initialize_app():
     init_data_store()
     load_orders_from_file()
     logging.info("Applikationen är initierad!")
 
-
+# --------------------------------------------
+# Autentiseringsrutter
+# --------------------------------------------
 @app.route('/')
+@login_required_custom
 def index():
-    return render_template("index.html")
+    return redirect(url_for('dashboard'))
 
+@app.route('/login')
+def login():
+    # Om användaren redan är inloggad, omdirigera till index
+    if 'google_id' in session:
+        return redirect(url_for('index'))
+        
+    flow = Flow.from_client_secrets_file(
+        CLIENT_SECRETS_FILE,
+        scopes=SCOPES,
+        redirect_uri=url_for('oauth2callback', _external=True)
+    )
+    authorization_url, state = flow.authorization_url(
+        access_type='offline',
+        include_granted_scopes='true'
+    )
+    session['state'] = state
+    return redirect(authorization_url)
+
+@app.route('/oauth2callback')
+def oauth2callback():
+    # Hantera Replit's URL-format
+    if 'code' not in request.args:
+        return 'Authorization code saknas', 400
+
+    try:
+        state = session['state']
+        flow = Flow.from_client_secrets_file(
+            CLIENT_SECRETS_FILE,
+            scopes=SCOPES,
+            state=state,
+            redirect_uri=url_for('oauth2callback', _external=True)
+        )
+        
+        # Bygg om authorization_response URL:en
+        auth_response = request.url
+        if request.headers.get('X-Forwarded-Proto') == 'https':
+            auth_response = auth_response.replace('http:', 'https:')
+        
+        flow.fetch_token(authorization_response=auth_response)
+        credentials = flow.credentials
+        
+        try:
+            id_info = id_token.verify_oauth2_token(
+                credentials.id_token, requests.Request())
+            
+            # Kontrollera om e-postadressen är tillåten
+            email = id_info.get('email')
+            if email != 'neckwearsweden@gmail.com':
+                logger.warning(f"Otillåtet inloggningsförsök från: {email}")
+                flash("Du har inte behörighet att logga in i systemet.", "error")
+                return redirect(url_for('index'))
+            
+            # Spara användarinformation i session
+            session['google_id'] = id_info.get('sub')
+            session['name'] = id_info.get('name')
+            session['email'] = email
+            
+            # Skapa och logga in användaren
+            user = User(id_info.get('sub'), email, id_info.get('name'))
+            login_user(user)
+            
+            logger.info(f"Lyckad inloggning för: {email}")
+            flash("Välkommen tillbaka!", "success")
+            return redirect(url_for('index'))
+            
+        except ValueError as e:
+            logger.error(f"Token verifieringsfel: {str(e)}")
+            return 'Error vid verifiering av token', 401
+    except Exception as e:
+        logger.error(f"OAuth callback fel: {str(e)}")
+        return f'Ett fel uppstod: {str(e)}', 500
+
+@app.route('/logout')
+def logout():
+    # Logga ut användaren och rensa sessionen
+    logout_user()
+    session.clear()
+    flash("Du har loggats ut", "info")
+    
+    # Skapa en speciell route för utloggningssidan
+    return render_template("logout.html")
 
 # --------------------------------------------
 # Statistik & Översikt
 # --------------------------------------------
 @app.route('/stats', methods=['GET', 'POST'])
+@login_required_custom
 def stats():
     today = datetime.today()
     default_from_date = (today - timedelta(days=30)).strftime('%Y-%m-%d')
@@ -185,6 +314,7 @@ def stats():
 
 
 @app.route('/stats/push_to_sheets', methods=['POST'])
+@login_required_custom
 def stats_push_to_sheets():
     from data import DATAFRAME_CACHE
     df = DATAFRAME_CACHE.get("stats_df")
@@ -203,6 +333,7 @@ def stats_push_to_sheets():
 # Leveranser
 # --------------------------------------------
 @app.route('/deliveries', methods=['GET'])
+@login_required_custom
 def deliveries():
     active_orders = get_active_deliveries_summary()
     completed_orders = get_completed_deliveries_summary()
@@ -214,6 +345,7 @@ def deliveries():
 
 
 @app.route('/deliveries/create', methods=['GET', 'POST'])
+@login_required_custom
 def deliveries_create():
     if request.method == 'POST':
         order_name = request.form.get("order_name", "").strip()
@@ -240,6 +372,7 @@ def deliveries_create():
 
 
 @app.route('/deliveries/cancel/<order_name>', methods=['GET', 'POST'])
+@login_required_custom
 def deliveries_cancel(order_name):
     if request.method == 'POST':
         cancel_delivery(order_name)
@@ -250,6 +383,7 @@ def deliveries_cancel(order_name):
 
 
 @app.route('/deliveries/process/<order_name>', methods=['GET', 'POST'])
+@login_required_custom
 def deliveries_process(order_name):
     from data import logger, DATAFRAME_CACHE
 
@@ -328,6 +462,7 @@ def deliveries_process(order_name):
 
 
 @app.route('/deliveries/update_stock/<order_name>', methods=['POST'])
+@login_required_custom
 def update_current_stock(order_name):
     from data import logger
     logger.info(f"Uppdaterar lagersaldo för leverans: '{order_name}'")
@@ -381,7 +516,8 @@ def update_current_stock(order_name):
     return redirect(url_for('deliveries_process', order_name=order_name))
 
 
-@app.route('/test_stock/<product_id>/<size>')
+@app.route('/test_stock/<product_id>/<size>', methods=['GET'])
+@login_required_custom
 def test_stock(product_id, size):
     api_endpoint = os.environ.get('YOUR_API_ENDPOINT')
     api_token = os.environ.get('CENTRA_API_TOKEN')
@@ -394,6 +530,7 @@ def test_stock(product_id, size):
 
 
 @app.route('/deliveries/reactivate/<order_name>', methods=['POST'])
+@login_required_custom
 def deliveries_reactivate(order_name):
     from data import logger, ALL_ORDERS_DF
     logger.info(f"Försöker återaktivera leverans: {order_name}")
@@ -420,7 +557,8 @@ def deliveries_reactivate(order_name):
     return redirect(url_for("deliveries"))
 
 
-@app.route('/deliveries/view/<order_name>')
+@app.route('/deliveries/view/<order_name>', methods=['GET'])
+@login_required_custom
 def deliveries_view(order_name):
     from data import logger, get_delivery_details
 
@@ -449,7 +587,8 @@ def deliveries_view(order_name):
         return redirect(url_for("deliveries"))
 
 
-@app.route('/deliveries/export/<order_name>')
+@app.route('/deliveries/export/<order_name>', methods=['GET'])
+@login_required_custom
 def export_delivery_details(order_name):
     try:
         details_df = get_delivery_details(order_name, only_active=False)
@@ -474,7 +613,8 @@ def export_delivery_details(order_name):
         return jsonify({'success': False, 'message': str(e)})
 
 
-@app.route('/price_lists')
+@app.route('/price_lists', methods=['GET'])
+@login_required_custom
 def price_lists():
     price_list_exists = os.path.exists(PRICE_LISTS_FILE)
     last_updated = None
@@ -495,6 +635,7 @@ def price_lists():
 
 
 @app.route('/price_lists/upload', methods=['POST'])
+@login_required_custom
 def upload_price_list():
     try:
         file = request.files['price_list']
@@ -521,6 +662,7 @@ def upload_price_list():
 
 
 @app.route('/price_lists/get_price', methods=['POST'])
+@login_required_custom
 def get_price():
     data = request.get_json()
     product_id = data.get('product_id')
@@ -553,6 +695,7 @@ def get_price():
 
 
 @app.route('/deliveries/get_stock', methods=['POST'])
+@login_required_custom
 def get_stock():
     data = request.get_json()
     product_id = data.get('product_id')
@@ -595,6 +738,7 @@ def get_stock():
 
 
 @app.route('/price_lists/update', methods=['POST'])
+@login_required_custom
 def update_price_list():
     try:
         # Läs in existerande prislista
@@ -623,6 +767,7 @@ def update_price_list():
 
 
 @app.route('/price_lists/delete_item', methods=['POST'])
+@login_required_custom
 def delete_price_list_item():
     try:
         data = request.get_json()
@@ -654,6 +799,7 @@ def delete_price_list_item():
 
 
 @app.route('/price_lists/add_item', methods=['POST'])
+@login_required_custom
 def add_price_list_item():
     try:
         data = request.get_json()
@@ -693,6 +839,7 @@ def add_price_list_item():
 
 
 @app.route('/search_products')
+@login_required_custom
 def search_products():
     try:
         query = request.args.get('query', '').strip()
@@ -727,6 +874,123 @@ def search_products():
     except Exception as e:
         logger.error(f"Fel vid produktsökning: {str(e)}")
         return jsonify({'products': []})
+
+
+@app.route('/dashboard')
+@login_required_custom
+def dashboard():
+    try:
+        # Hämta data för leveranser per månad
+        all_orders_df = pd.read_csv('active_orders.csv') if os.path.exists('active_orders.csv') else pd.DataFrame()
+        
+        if not all_orders_df.empty:
+            all_orders_df['OrderDate'] = pd.to_datetime(all_orders_df['OrderDate'])
+            all_orders_df['Month'] = all_orders_df['OrderDate'].dt.strftime('%Y-%m')
+            
+            # Gruppera efter månad och IsActive
+            monthly_stats = all_orders_df.groupby(['Month', 'IsActive']).size().unstack(fill_value=0)
+            delivery_months = monthly_stats.index.tolist()
+            active_deliveries_data = monthly_stats[True].tolist() if True in monthly_stats.columns else []
+            completed_deliveries_data = monthly_stats[False].tolist() if False in monthly_stats.columns else []
+        else:
+            delivery_months = []
+            active_deliveries_data = []
+            completed_deliveries_data = []
+
+        # Hämta data för lagervärde och inköpspriser
+        api_endpoint = os.environ.get('YOUR_API_ENDPOINT')
+        api_token = os.environ.get('CENTRA_API_TOKEN')
+        
+        products_df = pd.DataFrame()  # Initiera tom DataFrame
+        if api_endpoint and api_token:
+            try:
+                products_df = fetch_all_products(api_endpoint, api_token)
+            except Exception as api_error:
+                logger.error(f"Kunde inte hämta produkter från API: {str(api_error)}")
+                flash("Kunde inte hämta produktdata från API", "warning")
+        
+        if not products_df.empty:
+            # Beräkna totalt lagervärde och snittpriser
+            products_df['Stock_Value'] = products_df['Stock Balance'] * products_df['PurchasePrice']
+            monthly_stock_value = products_df.groupby(pd.Timestamp.now().strftime('%Y-%m'))['Stock_Value'].sum()
+            monthly_avg_price = products_df.groupby(pd.Timestamp.now().strftime('%Y-%m'))['PurchasePrice'].mean()
+            
+            stock_value_months = [pd.Timestamp.now().strftime('%Y-%m')]
+            stock_value_data = [float(monthly_stock_value.iloc[0])] if not monthly_stock_value.empty else [0]
+            avg_purchase_price_data = [float(monthly_avg_price.iloc[0])] if not monthly_avg_price.empty else [0]
+        else:
+            stock_value_months = []
+            stock_value_data = []
+            avg_purchase_price_data = []
+
+        # Hämta topplista över mest beställda produkter
+        top_products = []
+        if not all_orders_df.empty:
+            product_stats = all_orders_df.groupby(['ProductID']).agg({
+                'OrderName': 'count',
+                'Quantity ordered': 'sum',
+                'PurchasePrice': 'mean'
+            }).reset_index()
+            
+            product_stats.columns = ['ProductID', 'Order_Count', 'Total_Quantity', 'Avg_Price']
+            top_products = product_stats.nlargest(5, 'Total_Quantity').to_dict('records')
+            
+            # Lägg till produktnamn från Centra
+            if not products_df.empty:
+                for product in top_products:
+                    matching_product = products_df[products_df['ProductID'].astype(str) == str(product['ProductID'])]
+                    if not matching_product.empty:
+                        product['Product_Name'] = matching_product.iloc[0]['Product Name']
+                    else:
+                        product['Product_Name'] = 'Okänd produkt'
+
+        # Generera varningar
+        warnings = []
+        if not all_orders_df.empty and not products_df.empty:
+            # Varning för avvikande priser
+            avg_price = products_df['PurchasePrice'].mean()
+            std_price = products_df['PurchasePrice'].std()
+            price_threshold = avg_price + (2 * std_price)
+            
+            high_price_products = products_df[products_df['PurchasePrice'] > price_threshold]
+            for _, product in high_price_products.iterrows():
+                warnings.append({
+                    'title': 'Avvikande högt inköpspris',
+                    'message': f'Inköpspris ({product["PurchasePrice"]} SEK) är betydligt högre än genomsnittet ({avg_price:.2f} SEK)',
+                    'product_id': product['ProductID'],
+                    'size': product['Size'],
+                    'date': pd.Timestamp.now().strftime('%Y-%m-%d')
+                })
+            
+            # Varning för onormalt stora beställningar
+            avg_qty = all_orders_df['Quantity ordered'].mean()
+            std_qty = all_orders_df['Quantity ordered'].std()
+            qty_threshold = avg_qty + (2 * std_qty)
+            
+            large_orders = all_orders_df[all_orders_df['Quantity ordered'] > qty_threshold]
+            for _, order in large_orders.iterrows():
+                warnings.append({
+                    'title': 'Stor orderkvantitet',
+                    'message': f'Beställd kvantitet ({order["Quantity ordered"]}) är betydligt högre än genomsnittet ({avg_qty:.0f})',
+                    'product_id': order['ProductID'],
+                    'size': order['Size'],
+                    'date': pd.Timestamp.now().strftime('%Y-%m-%d')
+                })
+
+        return render_template('dashboard.html',
+                             delivery_months=delivery_months,
+                             active_deliveries_data=active_deliveries_data,
+                             completed_deliveries_data=completed_deliveries_data,
+                             stock_value_months=stock_value_months,
+                             stock_value_data=stock_value_data,
+                             avg_purchase_price_data=avg_purchase_price_data,
+                             top_products=top_products,
+                             warnings=warnings)
+
+    except Exception as e:
+        logger.error(f"Fel vid generering av dashboard: {str(e)}")
+        flash(f"Kunde inte ladda dashboard: {str(e)}", "error")
+        return redirect(url_for('index'))
 
 
 if __name__ == "__main__":

@@ -1,6 +1,8 @@
 
 # Känsliga uppgifter
 key.json
+client_secret.json
+storage-inkop-firebase-adminsdk-fbsvc-f6910c8036.json
 
 # Python
 __pycache__/

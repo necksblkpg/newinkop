@@ -5,3 +5,4 @@ requests
 gspread
 oauth2client
 gspread-dataframe
+filelock
