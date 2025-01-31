@@ -6,3 +6,4 @@ gspread
 oauth2client
 gspread-dataframe
 filelock
+flask-socketio==5.3.6

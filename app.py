@@ -102,7 +102,7 @@ def login():
     # Om användaren redan är inloggad, omdirigera till index
     if 'google_id' in session:
         return redirect(url_for('index'))
-        
+
     flow = Flow.from_client_secrets_file(
         CLIENT_SECRETS_FILE,
         scopes=SCOPES,
@@ -129,39 +129,39 @@ def oauth2callback():
             state=state,
             redirect_uri=url_for('oauth2callback', _external=True)
         )
-        
+
         # Bygg om authorization_response URL:en
         auth_response = request.url
         if request.headers.get('X-Forwarded-Proto') == 'https':
             auth_response = auth_response.replace('http:', 'https:')
-        
+
         flow.fetch_token(authorization_response=auth_response)
         credentials = flow.credentials
-        
+
         try:
             id_info = id_token.verify_oauth2_token(
                 credentials.id_token, requests.Request())
-            
+
             # Kontrollera om e-postadressen är tillåten
             email = id_info.get('email')
             if email != 'neckwearsweden@gmail.com':
                 logger.warning(f"Otillåtet inloggningsförsök från: {email}")
                 flash("Du har inte behörighet att logga in i systemet.", "error")
                 return redirect(url_for('index'))
-            
+
             # Spara användarinformation i session
             session['google_id'] = id_info.get('sub')
             session['name'] = id_info.get('name')
             session['email'] = email
-            
+
             # Skapa och logga in användaren
             user = User(id_info.get('sub'), email, id_info.get('name'))
             login_user(user)
-            
+
             logger.info(f"Lyckad inloggning för: {email}")
             flash("Välkommen tillbaka!", "success")
             return redirect(url_for('index'))
-            
+
         except ValueError as e:
             logger.error(f"Token verifieringsfel: {str(e)}")
             return 'Error vid verifiering av token', 401
@@ -175,7 +175,7 @@ def logout():
     logout_user()
     session.clear()
     flash("Du har loggats ut", "info")
-    
+
     # Skapa en speciell route för utloggningssidan
     return render_template("logout.html")
 
@@ -404,7 +404,7 @@ def deliveries_process(order_name):
         if request.method == 'POST':
             delivery_data = []
             rowcount = int(request.form.get('rowcount', 0))
-            
+
             for i in range(rowcount):
                 row_data = {
                     'ProductID': request.form.get(f'product_id_{i}'),
@@ -419,7 +419,7 @@ def deliveries_process(order_name):
                     'OrderName': order_name
                 }
                 delivery_data.append(row_data)
-            
+
             delivery_df = pd.DataFrame(delivery_data)
             handle_delivery_completion(delivery_df)
             flash("Leverans mottagen och arkiverad!", "success")
@@ -599,10 +599,10 @@ def export_delivery_details(order_name):
         # Skapa en ny dataframe med bara de kolumner vi vill exportera
         export_df = details_df[['Product Number', 'Mottagen mängd', 'new_avg_cost']].copy()
         export_df.columns = ['Artikelnummer', 'Mottagen mängd', 'Nytt snitt SEK']
-        
+
         # Exportera till Google Sheets
         sheet_url = push_to_google_sheets(export_df, f"Leverans {order_name}")
-        
+
         if sheet_url:
             return jsonify({'success': True, 'sheet_url': sheet_url})
         else:
@@ -667,13 +667,13 @@ def get_price():
     data = request.get_json()
     product_id = data.get('product_id')
     size = data.get('size')
-    
+
     if not product_id or not size:
         return jsonify({
             'success': False,
             'message': 'Produkt-ID och storlek krävs'
         })
-    
+
     try:
         price_data = find_price_in_list(product_id, None, size)
         if price_data:
@@ -700,35 +700,35 @@ def get_stock():
     data = request.get_json()
     product_id = data.get('product_id')
     size = data.get('size')
-    
+
     if not product_id or not size:
         return jsonify({
             'success': False,
             'message': 'Produkt-ID och storlek krävs'
         })
-    
+
     try:
         api_endpoint = os.environ.get('YOUR_API_ENDPOINT')
         api_token = os.environ.get('CENTRA_API_TOKEN')
-        
+
         if not api_endpoint or not api_token:
             return jsonify({
                 'success': False,
                 'message': 'API-uppgifter saknas'
             })
-        
+
         current_stock = get_current_stock_from_centra(
             api_endpoint, 
             api_token, 
             product_id, 
             size
         )
-        
+
         return jsonify({
             'success': True,
             'stock': current_stock
         })
-        
+
     except Exception as e:
         logger.error(f"Fel vid hämtning av lagersaldo: {str(e)}")
         return jsonify({
@@ -743,26 +743,26 @@ def update_price_list():
     try:
         # Läs in existerande prislista
         df = pd.read_csv(PRICE_LISTS_FILE)
-        
+
         # Uppdatera värden från formuläret
         for i in range(len(df)):
             price = request.form.get(f'price_{i}')
             currency = request.form.get(f'currency_{i}')
             product_id = request.form.get(f'product_id_{i}')
             size = request.form.get(f'size_{i}')
-            
+
             mask = (df['ProductID'].astype(str) == str(product_id)) & (df['Size'].astype(str) == str(size))
             if any(mask):
                 df.loc[mask, 'Price'] = float(price)
                 df.loc[mask, 'Currency'] = currency
-        
+
         # Spara uppdaterad prislista
         df.to_csv(PRICE_LISTS_FILE, index=False)
         flash("Prislistan har uppdaterats", "success")
-        
+
     except Exception as e:
         flash(f"Fel vid uppdatering av prislista: {str(e)}", "error")
-    
+
     return redirect(url_for('price_lists'))
 
 
@@ -773,24 +773,24 @@ def delete_price_list_item():
         data = request.get_json()
         product_id = data.get('product_id')
         size = data.get('size')
-        
+
         df = pd.read_csv(PRICE_LISTS_FILE)
         mask = (df['ProductID'].astype(str) == str(product_id)) & (df['Size'].astype(str) == str(size))
-        
+
         if not any(mask):
             return jsonify({
                 'success': False,
                 'message': 'Produkten hittades inte i prislistan'
             })
-            
+
         df = df[~mask]
         df.to_csv(PRICE_LISTS_FILE, index=False)
-        
+
         return jsonify({
             'success': True,
             'message': 'Produkt borttagen från prislistan'
         })
-        
+
     except Exception as e:
         return jsonify({
             'success': False,
@@ -816,7 +816,7 @@ def add_price_list_item():
         # Kontrollera om produkten redan finns
         mask = (price_list_df['ProductID'].astype(str) == str(data['product_id'])) & \
                (price_list_df['Size'].astype(str) == str(data['size']))
-        
+
         if any(mask):
             return jsonify({'success': False, 'message': 'Produkten finns redan i prislistan'}), 400
 
@@ -827,7 +827,7 @@ def add_price_list_item():
             'Price': float(data['price']),
             'Currency': str(data['currency'])
         }])
-        
+
         price_list_df = pd.concat([price_list_df, new_row], ignore_index=True)
         price_list_df.to_csv(PRICE_LISTS_FILE, index=False)
 
@@ -860,9 +860,9 @@ def search_products():
         # Filtrera baserat på ProductID eller Product Name
         mask = (products_df['ProductID'].astype(str).str.contains(query, case=False)) | \
                (products_df['Product Name'].astype(str).str.contains(query, case=False))
-        
+
         filtered_df = products_df[mask].head(10)  # Begränsa till 10 resultat
-        
+
         results = filtered_df.apply(lambda row: {
             'ProductID': str(row['ProductID']),
             'Product_Name': str(row['Product Name']),
@@ -882,11 +882,11 @@ def dashboard():
     try:
         # Hämta data för leveranser per månad
         all_orders_df = pd.read_csv('active_orders.csv') if os.path.exists('active_orders.csv') else pd.DataFrame()
-        
+
         if not all_orders_df.empty:
             all_orders_df['OrderDate'] = pd.to_datetime(all_orders_df['OrderDate'])
             all_orders_df['Month'] = all_orders_df['OrderDate'].dt.strftime('%Y-%m')
-            
+
             # Gruppera efter månad och IsActive
             monthly_stats = all_orders_df.groupby(['Month', 'IsActive']).size().unstack(fill_value=0)
             delivery_months = monthly_stats.index.tolist()
@@ -900,7 +900,7 @@ def dashboard():
         # Hämta data för lagervärde och inköpspriser
         api_endpoint = os.environ.get('YOUR_API_ENDPOINT')
         api_token = os.environ.get('CENTRA_API_TOKEN')
-        
+
         products_df = pd.DataFrame()  # Initiera tom DataFrame
         if api_endpoint and api_token:
             try:
@@ -908,13 +908,13 @@ def dashboard():
             except Exception as api_error:
                 logger.error(f"Kunde inte hämta produkter från API: {str(api_error)}")
                 flash("Kunde inte hämta produktdata från API", "warning")
-        
+
         if not products_df.empty:
             # Beräkna totalt lagervärde och snittpriser
             products_df['Stock_Value'] = products_df['Stock Balance'] * products_df['PurchasePrice']
             monthly_stock_value = products_df.groupby(pd.Timestamp.now().strftime('%Y-%m'))['Stock_Value'].sum()
             monthly_avg_price = products_df.groupby(pd.Timestamp.now().strftime('%Y-%m'))['PurchasePrice'].mean()
-            
+
             stock_value_months = [pd.Timestamp.now().strftime('%Y-%m')]
             stock_value_data = [float(monthly_stock_value.iloc[0])] if not monthly_stock_value.empty else [0]
             avg_purchase_price_data = [float(monthly_avg_price.iloc[0])] if not monthly_avg_price.empty else [0]
@@ -931,10 +931,10 @@ def dashboard():
                 'Quantity ordered': 'sum',
                 'PurchasePrice': 'mean'
             }).reset_index()
-            
+
             product_stats.columns = ['ProductID', 'Order_Count', 'Total_Quantity', 'Avg_Price']
             top_products = product_stats.nlargest(5, 'Total_Quantity').to_dict('records')
-            
+
             # Lägg till produktnamn från Centra
             if not products_df.empty:
                 for product in top_products:
@@ -951,7 +951,7 @@ def dashboard():
             avg_price = products_df['PurchasePrice'].mean()
             std_price = products_df['PurchasePrice'].std()
             price_threshold = avg_price + (2 * std_price)
-            
+
             high_price_products = products_df[products_df['PurchasePrice'] > price_threshold]
             for _, product in high_price_products.iterrows():
                 warnings.append({
@@ -961,12 +961,12 @@ def dashboard():
                     'size': product['Size'],
                     'date': pd.Timestamp.now().strftime('%Y-%m-%d')
                 })
-            
+
             # Varning för onormalt stora beställningar
             avg_qty = all_orders_df['Quantity ordered'].mean()
             std_qty = all_orders_df['Quantity ordered'].std()
             qty_threshold = avg_qty + (2 * std_qty)
-            
+
             large_orders = all_orders_df[all_orders_df['Quantity ordered'] > qty_threshold]
             for _, order in large_orders.iterrows():
                 warnings.append({
